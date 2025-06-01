@@ -9,36 +9,36 @@
 ## Phase 1: Backend Foundation
 
 ### 1.1. Initialize Supabase Project
-- [ ] Create new Supabase project in dashboard
-- [ ] Record `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SERVICE_ROLE_KEY`
-- [ ] Enable extensions: `pgcrypto` (for UUID)
-- [ ] Configure CORS: allow `http://localhost:3000` and any planned frontend URL
+- [x] ~~Create new Supabase project in dashboard~~
+- [x] ~~Record `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SERVICE_ROLE_KEY`~~
+- [x] ~~Enable extensions: `pgcrypto` (for UUID)~~
+- [x] ~~Configure CORS: allow `http://localhost:3000` and any planned frontend URL~~
 
 ### 1.2. Define Database Schema & Tables
-- [ ] Create table `workspaces` (id, name, created_by, created_at)
-- [ ] Enable RLS on `workspaces` and add policies
-- [ ] Create table `users` (id, auth_id, full_name, email, workspace_id, avatar_url, created_at)
-- [ ] Enable RLS on `users` and add policies
-- [ ] Create table `channels` (id, workspace_id, name, description, created_by, created_at, unique constraint)
-- [ ] Enable RLS on `channels` and add policies
-- [ ] Create table `messages` (id, workspace_id, channel_id, parent_message_id, user_id, content, created_at)
-- [ ] Add indexes on `messages`
-- [ ] Enable RLS on `messages` and add policies
-- [ ] Create table `attachments` (id, workspace_id, channel_id, message_id, storage_path, filename, uploaded_by, uploaded_at)
-- [ ] Add CHECK constraint and index on `attachments`
-- [ ] Enable RLS on `attachments` and add policies
-- [ ] Create table `user_channel_reads` (id, workspace_id, user_id, channel_id, last_read_at, unique)
-- [ ] Enable RLS on `user_channel_reads` and add policies
+- [x] ~~Create table `workspaces` (id, name, created_by, created_at)~~
+- [x] ~~Enable RLS on `workspaces` and add policies~~
+- [x] ~~Create table `users` (id, auth_id, full_name, email, workspace_id, avatar_url, created_at)~~
+- [x] ~~Enable RLS on `users` and add policies~~
+- [x] ~~Create table `channels` (id, workspace_id, name, description, created_by, created_at, unique constraint)~~
+- [x] ~~Enable RLS on `channels` and add policies~~
+- [x] ~~Create table `messages` (id, workspace_id, channel_id, parent_message_id, user_id, content, created_at)~~
+- [x] ~~Add indexes on `messages`~~
+- [x] ~~Enable RLS on `messages` and add policies~~
+- [x] ~~Create table `attachments` (id, workspace_id, channel_id, message_id, storage_path, filename, uploaded_by, uploaded_at)~~
+- [x] ~~Add CHECK constraint and index on `attachments`~~
+- [x] ~~Enable RLS on `attachments` and add policies~~
+- [x] ~~Create table `user_channel_reads` (id, workspace_id, user_id, channel_id, last_read_at, unique)~~
+- [x] ~~Enable RLS on `user_channel_reads` and add policies~~
 
 ### 1.3. Create Custom RPC for Unread Count
-- [ ] Define function `get_unread_count(p_user_id UUID, p_channel_id UUID)`
-- [ ] Verify `SECURITY DEFINER` and function returns `unread_count`
-- [ ] Test with sample data
+- [x] ~~Define function `get_unread_count(p_user_id UUID, p_channel_id UUID)`~~
+- [x] ~~Verify `SECURITY DEFINER` and function returns `unread_count`~~
+- [x] ~~Test with sample data~~
 
 ### 1.4. Configure Supabase Storage Bucket
-- [ ] Create private bucket named `attachments-bucket`
-- [ ] Confirm bucket ACL is private
-- [ ] Set public URL expiration defaults
+- [x] ~~Create private bucket named `attachments-bucket`~~
+- [x] ~~Confirm bucket ACL is private~~
+- [x] ~~Set public URL expiration defaults~~
 
 ---
 
@@ -51,8 +51,8 @@
 - [ ] Write utility file `supabaseClient.js`
 
 ### 2.2. Auth Trigger or Edge Function for Sign-Up
-- [ ] Decide between DB trigger vs. Edge Function (present pros/cons)
-- [ ] Implement chosen approach
+- [x] ~~Decide between DB trigger vs. Edge Function (present pros/cons)~~
+- [x] ~~Implement chosen approach~~
 
 ### 2.3. Validate RLS Policies
 - [ ] Write script to sign up test users in different workspaces
