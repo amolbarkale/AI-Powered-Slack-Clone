@@ -92,4 +92,7 @@ Phase 1:
 
 Basically phase broadly divided a task and withing every phase individual tasks to be present which are atomic in nature and such that if the coding agent complete task till last phase then it should be able to build v1 of our application end to end
 
+//_______________start after paid plan____________//
+
+7. Lets start building our phase 1 model in the same order as tasks mentioned in @todo.md
 
