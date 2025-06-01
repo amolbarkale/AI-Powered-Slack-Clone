@@ -1,0 +1,538 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# AI-Powered Slack Clone - Product Requirements Document
+
+## Executive Summary
+Build a Slack-style chat platform with core messaging functionality enhanced by four AI-powered features that provide intelligent productivity tools. The platform combines essential chat capabilities (channels, threads, mentions, file uploads) with AI features that analyze conversations, suggest replies, provide sentiment analysis, and generate meeting summaries.
+
+**Core Infrastructure:**
+- User Authentication & Workspace Isolation (each organization's data siloed)
+- Channels (public only, max 10 per workspace)
+- One-level Threads & Mentions
+- File Uploads (PDF/TXT)
+- Real-time Messaging & Unread Counts
+- React (with Context/hooks) + Tailwind for frontend
+- Supabase (Auth, Postgres, Realtime, Storage) for backend/data
+
+**AI-Powered Features:**
+1. **Org Brain Plugin**: Query organizational knowledge across channels
+2. **Auto-Reply Composer**: AI-suggested responses based on context
+3. **Tone & Impact Meter**: On-demand message sentiment and impact analysis
+4. **Meeting Notes Generator**: Conversation summaries with action items
+
+**Target:** MVP with core chat + AI features functional within ~24 hours.
+
+## Goals & Success Criteria
+
+### Core Chat Platform
+- **Authentication & Isolation**: Users sign up via email/password (Supabase Auth). Each workspace has isolated data with no cross-organization leakage.
+- **Channels & Threads**: Up to 10 public channels per workspace with single-level threading and @username mentions.
+- **File Upload**: PDF/TXT files (max 10 MB) with Supabase Storage integration.
+- **Real-Time Messaging**: Sub-200ms message delivery with unread count tracking.
+- **Responsive UI**: Mobile and desktop optimized with Tailwind CSS.
+
+### AI-Enhanced Features
+- **Org Brain**: Users can ask questions like "What's the latest on Project Atlas?" and receive contextual answers from the last 2 days of conversations.
+- **Smart Replies**: "Suggest Reply" button provides context-aware response suggestions based on entire channel history.
+- **Tone Analysis**: On-demand analysis of message tone (aggressive/weak/confusing) and impact assessment.
+- **Meeting Summaries**: Generate structured notes from selected conversations with action items and key decisions.
+
+## User Personas & Scenarios
+
+### Alice (Team Member, 30-user workspace)
+- Shares daily updates in "#general" channel
+- Uses AI to ask "What decisions were made about the Q4 launch?" and gets summary from multiple channels
+- Uploads project specs and gets AI-suggested replies when team members ask questions
+- Uses tone meter to ensure her feedback sounds constructive rather than critical
+
+### Bob (Project Lead)
+- Creates "#project-beta" channel and manages discussions
+- Uses meeting notes generator to summarize week-long planning discussions
+- Leverages auto-reply suggestions when responding to multiple team questions
+- Queries org brain: "What are the current blockers across all projects?"
+
+### Carol (New User)
+- Signs up and joins existing workspace
+- Uses AI-suggested replies to participate in discussions while learning team communication style
+- Benefits from conversation summaries to quickly catch up on project context
+- Relies on tone meter to ensure her messages match team culture
+
+## Functional Requirements
+
+### 1. Core Authentication & Workspace Management
+**Sign-Up / Sign-In**
+- Supabase Auth with email/password
+- First login prompts workspace creation (workspace name input)
+- Subsequent logins show workspace selection if user belongs to multiple
+- Single "user" role - no admin/manager differentiation in MVP
+
+**Workspace Isolation**
+- All data scoped by workspace_id with Supabase RLS policies
+- No cross-workspace data visibility or leakage
+- AI features only access data within user's current workspace
+
+### 2. Channels & Messaging
+**Channel Management**
+- Create up to 10 public channels per workspace
+- Auto-membership: all workspace users see all channels
+- Channel list in sidebar with unread count badges
+- Real-time channel updates via Supabase Realtime
+
+**Message System**
+- Real-time posting with <200ms delivery
+- Single-level threading (reply to parent messages)
+- @username mentions with UI highlighting
+- Message ordering by timestamp with ID tiebreaker
+- Unread tracking per user/channel with last_read_at timestamps
+
+### 3. File Upload & Storage
+**Supported Files**
+- PDF and TXT files only, max 10MB per file
+- Upload via Supabase Storage with signed URLs
+- File metadata stored with workspace/channel association
+- Inline file links in messages with download capability
+
+### 4. AI-Powered Features
+
+#### **Org Brain Plugin**
+**Functionality:**
+- "Ask Org Brain" button in each channel header
+- Input field for natural language questions
+- AI processes last 2 days of messages across all channels in workspace
+- Contextual responses citing relevant conversations and decisions
+
+**Implementation:**
+- Query processes messages from last 48 hours with created_at filter
+- AI model receives conversation context + user question
+- Response includes channel references and timestamps
+- No persistent searchable summaries - real-time processing only
+
+**Example Queries:**
+- "What's the latest on Project Atlas?"
+- "What decisions were made about the product launch?"
+- "Are there any current blockers across projects?"
+
+#### **Auto-Reply Composer**
+**Functionality:**
+- "Suggest Reply" button appears on all messages
+- AI analyzes entire channel history for context
+- Provides 2-3 suggested responses in different tones (professional, friendly, concise)
+- User can select, edit, or ignore suggestions
+
+**Implementation:**
+- Button triggers AI analysis of full channel message history
+- Context includes original message, thread replies, and channel background
+- Generic professional style responses (no personalization in MVP)
+- Suggestions appear in expandable UI component below message
+
+#### **Tone & Impact Meter**
+**Functionality:**
+- "Analyze Tone" button in message composer (before sending)
+- AI evaluates message for tone indicators: aggressive, weak, confusing, unclear
+- Impact assessment: high-impact, low-impact, neutral
+- Color-coded feedback with specific suggestions for improvement
+
+**Implementation:**
+- On-demand analysis only (user clicks button)
+- AI processes message text + conversation context for tone assessment
+- Results display in modal or inline feedback
+- Analysis considers workspace communication patterns from existing messages
+
+#### **Meeting Notes Generator**
+**Functionality:**
+- "Generate Summary" button at top of each channel
+- Creates structured meeting notes from channel conversations
+- Organized output: Key Decisions, Action Items, Discussion Points, Next Steps
+- Summary covers recent activity (configurable timeframe, default 24 hours)
+
+**Implementation:**
+- User selects timeframe for summary (last 24h, 48h, or week)
+- AI processes all messages in selected period
+- Structured output formatted in markdown
+- Option to post summary back to channel or download as file
+
+## Non-Functional Requirements
+
+### Performance & Scalability
+- **Message Delivery**: <200ms end-to-end under normal load
+- **AI Response Time**: <5 seconds for org brain queries, <3 seconds for reply suggestions
+- **Channel Load**: <500ms for last 50 messages + threads
+- **Concurrent Users**: Up to 50 users per workspace
+- **AI Rate Limiting**: Max 100 AI requests per workspace per hour
+
+### Security & Privacy
+- **Data Isolation**: Supabase RLS policies enforce workspace boundaries for all tables
+- **AI Privacy**: AI models process data temporarily - no persistent storage of conversation content
+- **File Security**: Private storage with signed URLs, 15-minute expiration
+- **HTTPS**: All communications encrypted in transit
+
+### Reliability
+- **Uptime**: Target 99.9% availability via Supabase infrastructure
+- **Error Handling**: Graceful degradation when AI services unavailable
+- **Offline Handling**: "Reconnecting..." indicator during network issues
+- **AI Fallbacks**: Clear error messages when AI processing fails
+
+## Data Model & Schema
+
+### Core Tables (Enhanced from Original)
+All tables include workspace_id for isolation and AI context.
+
+**users**
+- id (UUID, primary key)
+- email (text, unique)
+- full_name (text)
+- workspace_id (UUID, references workspaces.id)
+- avatar_url (text, nullable)
+- created_at (timestamp)
+
+**workspaces**
+- id (UUID, primary key)
+- name (text, unique)
+- created_by (UUID, references users.id)
+- created_at (timestamp)
+- ai_settings (jsonb, nullable) - workspace-specific AI preferences
+
+**channels**
+- id (UUID, primary key)
+- workspace_id (UUID, references workspaces.id)
+- name (text)
+- description (text, nullable)
+- created_by (UUID, references users.id)
+- created_at (timestamp)
+- last_ai_summary_at (timestamp, nullable) - tracking for summary generation
+
+**messages** (Enhanced for AI context)
+- id (UUID, primary key)
+- workspace_id (UUID, references workspaces.id)
+- channel_id (UUID, references channels.id)
+- parent_message_id (UUID, references messages.id, nullable)
+- user_id (UUID, references users.id)
+- content (text)
+- created_at (timestamp)
+- ai_processed (boolean, default false) - flag for AI indexing
+- tone_analysis (jsonb, nullable) - stored tone analysis results
+
+**attachments**
+- id (UUID, primary key)
+- workspace_id (UUID, references workspaces.id)
+- channel_id (UUID, references channels.id)
+- message_id (UUID, references messages.id)
+- storage_path (text)
+- filename (text)
+- uploaded_by (UUID, references users.id)
+- uploaded_at (timestamp)
+
+**user_channel_reads**
+- id (UUID, primary key)
+- workspace_id (UUID, references workspaces.id)
+- user_id (UUID, references users.id)
+- channel_id (UUID, references channels.id)
+- last_read_at (timestamp)
+
+### AI-Specific Tables
+
+**ai_queries** (Track org brain usage)
+- id (UUID, primary key)
+- workspace_id (UUID, references workspaces.id)
+- user_id (UUID, references users.id)
+- query_text (text)
+- response_text (text)
+- channels_analyzed (uuid[]) - array of channel IDs used for context
+- created_at (timestamp)
+
+**ai_suggestions** (Track reply suggestions)
+- id (UUID, primary key)
+- workspace_id (UUID, references workspaces.id)
+- message_id (UUID, references messages.id)
+- user_id (UUID, references users.id)
+- suggestions (jsonb) - array of suggested replies
+- selected_suggestion (text, nullable)
+- created_at (timestamp)
+
+## API Endpoints & Contracts
+
+### Core Chat APIs (From Original PRD)
+- Authentication: POST /signup, POST /signin
+- Channels: GET /channels, POST /channels
+- Messages: GET /channels/:id/messages, POST /channels/:id/messages
+- Threads: GET /threads/:parent_id, POST /threads/:parent_id/reply
+- Attachments: POST /channels/:id/messages/:msg_id/attachments
+- Unread Counts: GET /channels/:id/unread_count, POST /channels/:id/mark_read
+
+### AI-Enhanced APIs
+
+**Org Brain**
+```
+POST /api/ai/org-brain/query
+Body: { workspace_id, query_text, user_id }
+Response: {
+  answer: string,
+  sources: [{ channel_id, message_id, timestamp, excerpt }],
+  processing_time_ms: number
+}
+```
+
+**Auto-Reply Suggestions**
+```
+POST /api/ai/suggest-reply
+Body: { workspace_id, channel_id, message_id, user_id }
+Response: {
+  suggestions: [
+    { text: string, tone: "professional|friendly|concise", confidence: number }
+  ],
+  context_messages_analyzed: number
+}
+```
+
+**Tone Analysis**
+```
+POST /api/ai/analyze-tone
+Body: { workspace_id, message_content, channel_id, user_id }
+Response: {
+  tone_indicators: ["aggressive"|"weak"|"confusing"|"clear"],
+  impact_level: "high"|"medium"|"low",
+  suggestions: [string],
+  confidence: number
+}
+```
+
+**Meeting Notes**
+```
+POST /api/ai/generate-summary
+Body: { workspace_id, channel_id, timeframe_hours, user_id }
+Response: {
+  summary: {
+    key_decisions: [string],
+    action_items: [{ task: string, assignee?: string, due_date?: string }],
+    discussion_points: [string],
+    next_steps: [string]
+  },
+  messages_processed: number,
+  timeframe: { start: timestamp, end: timestamp }
+}
+```
+
+## UI Wireframes & AI Integration
+
+### Enhanced Channel View
+**Header Additions:**
+- "Ask Org Brain" button (opens query modal)
+- "Generate Summary" button (opens timeframe selector)
+- Existing: Channel name, Upload File, message count
+
+**Message Enhancements:**
+- "Suggest Reply" button on each message (next to existing Reply button)
+- "Analyze Tone" button in composer area (before Send)
+- AI-generated content marked with subtle AI icon
+
+**New AI Components:**
+
+**Org Brain Query Modal:**
+- Text input: "Ask anything about your workspace..."
+- Example queries as placeholder text
+- Response area with source citations
+- "Searching last 2 days..." loading state
+
+**Reply Suggestions Panel:**
+- Expandable area below target message
+- 2-3 suggested replies with tone indicators
+- "Use this reply" button for each suggestion
+- "Customize" option to edit before sending
+
+**Tone Analysis Results:**
+- Inline feedback in composer
+- Color-coded indicators (red=aggressive, yellow=unclear, green=positive)
+- Specific improvement suggestions
+- Re-analyze button after edits
+
+**Meeting Summary Output:**
+- Structured format with collapsible sections
+- Export options (markdown, PDF)
+- "Post to channel" button
+- Date range and message count processed
+
+### Mobile Considerations
+- AI features accessible via long-press on mobile
+- Simplified AI interfaces for smaller screens
+- Voice input support for org brain queries
+- Swipe gestures for quick tone analysis
+
+## Real-Time & AI Data Flow
+
+### Enhanced Real-Time Subscriptions
+**Existing Supabase Realtime:**
+- Message creation/updates
+- Channel member changes
+- Unread count updates
+
+**AI Processing Flow:**
+1. **Message Creation** → AI background processing for future context
+2. **Org Brain Query** → Real-time processing of last 2 days messages
+3. **Reply Suggestions** → Channel history analysis on-demand
+4. **Tone Analysis** → Immediate processing of draft message
+5. **Summary Generation** → Batch processing of selected timeframe
+
+### AI Context Management
+**2-Day Rolling Window:**
+- Messages older than 48 hours excluded from org brain queries
+- Efficient querying with created_at indexing
+- Automatic cleanup of old AI processing flags
+
+**Channel History Access:**
+- Auto-reply considers full channel history for context
+- Pagination for large channels (>1000 messages)
+- Context summarization for very long histories
+
+## Timeline & Milestones (24-Hour MVP + AI)
+
+| Time Window | Core Tasks | AI Integration Tasks |
+|-------------|------------|---------------------|
+| **Hour 1-2** | React + Tailwind setup, Supabase config | Set up AI API credentials (OpenAI/Anthropic) |
+| **Hour 3-5** | Auth flow implementation | Basic AI service wrapper functions |
+| **Hour 6-8** | Channel sidebar + realtime | Org brain query modal UI |
+| **Hour 9-11** | Channel view + messaging | Reply suggestion button integration |
+| **Hour 12-14** | Message posting + threading | Tone analysis composer integration |
+| **Hour 15-17** | File upload functionality | Meeting summary generation UI |
+| **Hour 18-20** | Unread count tracking | AI API integration + error handling |
+| **Hour 21-22** | RLS policies + security | AI rate limiting + fallback states |
+| **Hour 23** | QA + edge case testing | AI feature testing + refinement |
+| **Hour 24** | UI polish + deployment | AI performance optimization |
+
+## AI Implementation Strategy
+
+### Model Selection (24-hour constraint)
+**Primary Option: OpenAI API**
+- GPT-4 for complex reasoning (org brain, summaries)
+- GPT-3.5-turbo for quick tasks (tone analysis, reply suggestions)
+- Established API with good documentation
+- Rate limiting and error handling well-documented
+
+**Fallback: Anthropic Claude**
+- Alternative if OpenAI limits reached
+- Similar capabilities with different API structure
+
+### Context Management
+**Org Brain (2-day window):**
+```sql
+SELECT content, user_id, channel_id, created_at 
+FROM messages 
+WHERE workspace_id = $1 
+  AND created_at >= NOW() - INTERVAL '2 days'
+ORDER BY created_at DESC
+LIMIT 500
+```
+
+**Reply Suggestions (full channel):**
+```sql
+SELECT content, user_id, created_at
+FROM messages 
+WHERE channel_id = $1 
+ORDER BY created_at DESC
+LIMIT 100
+```
+
+### Rate Limiting & Cost Control
+- **Workspace Limits**: 100 AI requests/hour per workspace
+- **User Limits**: 25 AI requests/hour per user
+- **Cost Monitoring**: Track API usage per workspace
+- **Graceful Degradation**: Clear error messages when limits exceeded
+
+## Risks & Mitigations
+
+### Technical Risks
+**AI API Reliability**
+- Risk: OpenAI/Anthropic API downtime affects core features
+- Mitigation: Fallback to generic responses, clear error states, retry logic
+
+**Context Window Limits**
+- Risk: Large channel histories exceed model context limits
+- Mitigation: Intelligent truncation, summarization of older messages
+
+**Performance Impact**
+- Risk: AI processing delays overall app responsiveness
+- Mitigation: Async processing, loading states, timeout handling
+
+### Business Risks
+**AI Accuracy**
+- Risk: Poor suggestions damage user trust
+- Mitigation: Confidence scores, user feedback collection, clear AI labeling
+
+**Cost Overruns**
+- Risk: High AI API usage creates unsustainable costs
+- Mitigation: Usage monitoring, rate limiting, cost alerts
+
+**Privacy Concerns**
+- Risk: Users concerned about AI processing sensitive conversations
+- Mitigation: Clear privacy policy, opt-out options, temporary processing only
+
+### User Experience Risks
+**AI Over-Reliance**
+- Risk: Users become dependent on AI suggestions
+- Mitigation: Encourage manual input, show AI as assistance not replacement
+
+**Feature Complexity**
+- Risk: AI features confuse rather than help users
+- Mitigation: Progressive disclosure, clear labeling, optional features
+
+## Success Metrics
+
+### Core Platform Metrics
+- **User Engagement**: Messages per user per day
+- **Channel Activity**: Average messages per channel
+- **File Sharing**: Upload frequency and types
+- **Real-time Performance**: Message delivery latency
+
+### AI Feature Metrics
+- **Org Brain Usage**: Queries per workspace per day
+- **Reply Adoption**: Percentage of AI suggestions used
+- **Tone Analysis**: Analysis requests per user
+- **Summary Generation**: Summaries created per workspace
+
+### Quality Metrics
+- **AI Accuracy**: User feedback on AI responses (thumbs up/down)
+- **Response Time**: AI feature processing speed
+- **Error Rate**: Failed AI requests percentage
+- **User Satisfaction**: Feature usefulness ratings
+
+## Future Enhancements (Post-MVP)
+
+### Advanced AI Features
+- **Personalized Communication Styles**: Learn individual user preferences
+- **Cross-Workspace Insights**: For users in multiple organizations
+- **Proactive Notifications**: AI suggests when to follow up on discussions
+- **Document Analysis**: AI processing of uploaded PDFs for better context
+
+### Integration Capabilities
+- **Calendar Integration**: AI-generated meeting agendas from channel discussions
+- **Task Management**: Convert AI-identified action items to tasks
+- **Email Summaries**: Daily/weekly AI summaries sent via email
+- **API Access**: Allow third-party integrations with AI features
+
+### Enterprise Features
+- **Custom AI Models**: Fine-tuned models for specific industries
+- **Advanced Analytics**: Conversation insights and team productivity metrics
+- **Compliance Tools**: AI-powered content moderation and archiving
+- **Single Sign-On**: Integration with enterprise authentication systems
+
+## Glossary & Acronyms
+
+- **MVP**: Minimum Viable Product
+- **RLS**: Row-Level Security (Postgres/Supabase feature)
+- **Realtime**: Supabase's real-time subscription engine
+- **Org Brain**: AI feature that queries organizational knowledge
+- **Context Window**: Maximum text length AI model can process at once
+- **Rate Limiting**: Restricting API usage to control costs and prevent abuse
+- **Tone Analysis**: AI evaluation of message sentiment and communication style
+- **LLM**: Large Language Model (GPT, Claude, etc.)
+
+## Conclusion
+
+This PRD defines a Slack-like chat platform enhanced with four AI-powered features that provide genuine productivity value. The 24-hour timeline focuses on core functionality with AI integration, creating a unique product that goes beyond basic chat to offer intelligent assistance.
+
+The AI features are designed to be immediately useful while remaining technically feasible within the aggressive timeline. By focusing on workspace-scoped AI that processes recent conversations, the platform provides contextual intelligence without overwhelming complexity.
+
+
+Success depends on balancing feature richness with implementation speed, ensuring AI enhancements feel natural rather than gimmicky, and maintaining the core chat experience users expect while adding transformative AI capabilities.

@@ -1,0 +1,182 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Instructions for Coding Agent
+
+Below are explicit guidelines to ensure your implementation aligns perfectly with our specifications. Before writing any code or making any architectural decisions, read these rules carefully and refer back to them throughout development.
+
+---
+
+## 1. Collaboration & Decision-Making
+
+1. **No Unilateral Assumptions**  
+   - **Rule**: If you need to assume anything that isn’t explicitly documented, **do not proceed on your own**.  
+   - **Action**: Stop and discuss with me (the project owner) to confirm. For example:  
+     - If you encounter a UI state or edge case not described in the design docs, ask for clarification.  
+     - If you need to pick a library version or third-party integration and the documentation is unclear, ask before choosing.
+
+2. **Discuss Trade-Offs for Multiple Approaches**  
+   - **Rule**: When more than one implementation approach is possible, **do not pick one arbitrarily**.  
+   - **Action**: Present the available options, outline pros and cons (e.g., performance vs. simplicity, maintainability vs. bundle size, native browser API vs. external library), and ask which you should proceed with.  
+   - **Example**:  
+     - If deciding between using React Context vs. Zustand for state management, list benefits/challenges of each and request my input rather than choosing on your own.
+
+3. **Ask When Unsure**  
+   - **Rule**: If you are uncertain about any architectural or design decision—including folder structure, component hierarchy, or database relations—**pause and consult**.  
+   - **Action**: Raise a question rather than guessing. For example:  
+     - If it’s unclear where to place a new component (e.g., `/components` vs. `/features`), ask for guidance.  
+     - If you’re uncertain how a future AI feature might integrate with the existing codebase, ask before proceeding.
+
+---
+
+## 2. Frontend Design Language: “Religious” Adherence
+
+1. **Colors & Variables**  
+   - Always use the exact CSS variables (or Tailwind theme tokens) defined in the “Frontend Design & Implementation Guide.”  
+   - **Do not introduce new hex codes** for primary/secondary/neutrals. If you need a shade not explicitly listed, ask for approval.
+
+2. **Typography**  
+   - Use **Lato** (or fallbacks “Helvetica Neue”, Arial, sans-serif) for all text.  
+   - Follow the font sizes, weights, and line-heights exactly as documented.  
+   - **Do not substitute** another font or deviate from the specified weights (400, 500, 600, 700).
+
+3. **Spacing System**  
+   - Respect the 4 px base unit, and the predefined XS, S, M, L, XL values.  
+   - **Do not invent new spacing values**. If you feel a gap should be larger or smaller than documented, ask for clarification instead of guessing.
+
+4. **UI Patterns & Components**  
+   - Build components (e.g., `SidebarItem`, `MessageItem`, `ThreadContainer`) exactly following the CSS/markup examples in the design docs.  
+   - Do not merge styles, override rules, or create new component patterns unless explicitly permitted.  
+   - **If you think a component needs a slight variation**, propose it and discuss trade-offs (e.g., “Should the hover background be 10% darker or the exact `--surface-hover`?”).
+
+5. **Icons**  
+   - Use **Heroicons** (React) or **React-Feather** exactly as documented—do not swap to a different icon set.  
+   - Ensure each icon’s size and default color match the examples. If you need an icon that isn’t listed, ask before adding.
+
+---
+
+## 3. Backend Schema & API Endpoints: Exact Compliance
+
+1. **Database Schema**  
+   - Create every table (`workspaces`, `users`, `channels`, `messages`, `attachments`, `user_channel_reads`) with the exact columns, types, constraints, and indexes provided in the documentation.  
+   - **Implement all RLS policies** exactly as shown—do not modify or skip any policy.  
+   - If you believe a new column or index is necessary (e.g., for performance), present a proposal and discuss trade-offs (cost, complexity, RLS implications) before altering the schema.
+
+2. **API Endpoints & Usage**  
+   - Use the **Supabase JS client** for every read/write operation exactly as documented (e.g., `.from("channels").select(...).eq("workspace_id", …)`).  
+   - **Do not create custom REST endpoints** or bypass Supabase unless explicitly instructed.  
+   - Follow each request/response shape precisely: field names, JSON structure, error handling.  
+   - If you want to introduce a new RPC or function, outline the SQL and logic, and ask for approval before implementing.
+
+3. **Security & RLS**  
+   - Ensure every query goes through Supabase with RLS policies enforced.  
+   - **Do not disable or bypass RLS** under any circumstance.  
+   - If you need an Edge Function or service-role operation, confirm with me and use the `SERVICE_ROLE_KEY` responsibly.
+
+---
+
+## 4. Third-Party Integrations & Versions
+
+1. **Dependency Versions**  
+   - Use the exact library versions referenced in documentation whenever possible (e.g., `@heroicons/react@1.0.6`, `react-feather@2.0.9`).  
+   - If a newer version is available, **do not upgrade automatically**—ask whether we should adopt the latest or stick to documented versions.
+
+2. **Adding New Libraries**  
+   - If a feature requirement arises that calls for a new library (e.g., a modal library, datepicker), **present three options** (or fewer if limited) with pros/cons and ask which to integrate.  
+   - Do not install or scaffold a new library before getting confirmation.
+
+3. **Documentation Links**  
+   - Whenever you rely on a third-party API, include a comment in code with the official documentation link.  
+   - Keep a consolidated list of all third-party docs in a single markdown file (e.g., `EXTERNAL_DEPENDENCIES.md`) so we always know where each integration’s docs live.
+
+---
+
+## 5. Development & Code Structure
+
+1. **Folder & File Organization**  
+   - Follow a consistent, feature-based folder structure. For example:  
+     ```
+     /src
+       /components      # Reusable UI components
+       /features        # Each major feature (e.g., channels, messages)
+       /contexts        # React Context providers (AuthContext, WorkspaceContext)
+       /hooks           # Custom hooks
+       /styles          # Global CSS / Tailwind config
+       /utils           # Utility functions (date formatting, etc.)
+       index.js
+       App.js
+     ```
+   - If you propose a different structure (e.g., atomic design vs. feature-based), **describe both approaches** and discuss trade-offs.
+
+2. **Naming Conventions**  
+   - Components: PascalCase (e.g., `SidebarItem.jsx`)  
+   - Hooks: `useCamelCase` (e.g., `useAuth.js`)  
+   - Files: kebab-case or camelCase only if documented; do not mix conventions.  
+   - CSS classes: when using Tailwind, follow its class-naming conventions. If writing plain CSS or CSS Modules, use BEM or utility-based naming—ask for guidelines if unsure.
+
+3. **Type Safety (Optional)**  
+   - If you choose to introduce TypeScript, **propose the migration** in advance. Otherwise, work with plain JavaScript and PropTypes if needed.  
+   - **Do not convert the entire codebase to TypeScript** without discussion.
+
+4. **Error Handling & Logging**  
+   - Follow the documented error-handling patterns (e.g., show a toast on network error, log error with `console.error` plus a clear message).  
+   - Do not swallow errors silently; always surface them to the user or console with context (function name, operation).
+
+---
+
+## 6. Testing & Validation
+
+1. **Manual QA**  
+   - After implementing a flow, test each step against the user flows document.  
+   - Verify edge cases:  
+     - Creating the 11th channel (should be prevented).  
+     - Uploading a 12 MB PDF (should show an error).  
+     - Selecting a channel when no messages exist (should show empty-state text).
+
+2. **Automated Testing (Optional, if requested)**  
+   - If writing unit tests, choose a familiar library (Jest + React Testing Library).  
+   - **Do not add new test frameworks** without discussing.  
+   - Tests should cover:  
+     - Rendering a channel list with correct unread badges.  
+     - Message list subscription (mocking Realtime).  
+     - RLS queries (mock Supabase client with allowed/disallowed data).
+
+3. **Accessibility Checks**  
+   - Use a contrast tool (e.g., WebAIM) to verify color ratios.  
+   - Ensure focus outlines are visible (e.g., primary buttons, links).
+
+---
+
+## 7. Continuous Communication
+
+1. **Daily Stand-Ups / Progress Updates**  
+   - At the end of each day (or after completing a major flow), send a short summary:  
+     - **What’s Done** (e.g., “Channel creation modal implemented; RLS policies tested.”)  
+     - **What’s Blocked / Needs Clarification** (e.g., “Unsure if new `user_profile` route should be a Supabase RPC or direct `users` table query.”)
+
+2. **Code Reviews & Pull Requests**  
+   - Submit clean, atomic commits that map to the flows above.  
+   - Each pull request must include:  
+     - A brief description of which user flow it implements.  
+     - Screenshots (if UI changes are involved).  
+     - Any open questions or trade-offs encountered.  
+
+3. **Documentation Updates**  
+   - If you find that the existing design or schema docs are missing a detail, propose an update in the PR.  
+   - Do not leave code un-documented; either add inline comments or update the relevant markdown file.
+
+---
+
+## 8. Summary
+
+By following these rules and elaborations:
+
+- **You will not assume or decide in isolation.** Always consult if anything is incomplete or ambiguous.  
+- **You will compare trade-offs and ask before choosing an approach.**  
+- **You will ask questions whenever uncertain**, rather than guess.  
+- **You will implement exactly what the design and schema docs prescribe.** No deviations without explicit approval.
+
+**Whenever in doubt, pause and ask.** This ensures we build a consistent, maintainable Slack-clone with zero misunderstandings.  
+

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI-Powered Slack Clone PRD Flowchart</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { font-family: Lato, 'Helvetica Neue', Arial, sans-serif; background: #f9fafb; }
+    .mermaid { background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px #0001; }
+  </style>
+</head>
+<body>
+  <h2>AI-Powered Slack Clone - PRD Flowchart</h2>
+  <div class="mermaid">
+flowchart TD
+A[User Authentication & Workspace Isolation]
+B[Channels (max 10 per workspace)]
+C[Threads & Mentions]
+D[File Uploads (PDF/TXT, 10MB)]
+E[Real-time Messaging & Unread Counts]
+F[AI Features]
+G1[Org Brain Plugin]
+G2[Auto-Reply Composer]
+G3[Tone & Impact Meter]
+G4[Meeting Notes Generator]
+
+A --> B
+B --> C
+C --> D
+D --> E
+E --> F
+
+F --> G1
+F --> G2
+F --> G3
+F --> G4
+  </div>
+  <script>
+    mermaid.initialize({ startOnLoad: true });
+  </script>
+</body>
+</html> 

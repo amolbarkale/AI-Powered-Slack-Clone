@@ -1,0 +1,817 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Frontend Design & Implementation Guide
+
+Below is the complete frontend specification for the Slack-clone UI. It covers:
+
+1. **Primary & Secondary Colors**  
+2. **Typography (Fonts)**  
+3. **Color Palette (Full Swatch)**  
+4. **Spacing System**  
+5. **UI Patterns**  
+6. **Iconography**  
+7. **Third-Party Tools & Documentation Links**  
+8. **Design References**
+
+Deliver this document to the coding agent so there’s no ambiguity about styles, spacing, or dependencies.
+
+---
+
+## 1. Primary & Secondary Colors
+
+Define these as CSS variables (or Tailwind overrides) to ensure consistency. All hex codes match Slack’s light-theme values.
+
+```css
+:root {
+  /* Primary (Brand) */
+  --color-primary-purple:   #4A154B; /* Slack Purple (header, primary buttons) */
+  --color-primary-blue:     #1264A3; /* Accent Blue (hover states, selected items) */
+
+  /* Secondary (Accents) */
+  --color-accent-green:     #2EB67D; /* Online status, success badges */
+  --color-accent-yellow:    #ECB22E; /* Away status, warning badges */
+  --color-accent-red:       #E01E5A; /* DND status, error badges */
+
+  /* Neutrals (Backgrounds, Text, Borders) */
+  --color-bg-white:         #FFFFFF;
+  --color-surface-light:    #F8F8F8;
+  --color-surface-hover:    #F4F4F4;
+  --color-divider:          #E0E0E0;
+  --color-disabled:         #C4C4C4;
+  --color-text-primary:     #1D1C1D;
+  --color-text-secondary:   #616061;
+  --color-text-tertiary:    #A3A2A3;
+  --color-sidebar-bg:       #F4F5F6;
+  --color-channel-bg:       #FFFFFF;
+}
+
+/* (Optional) Dark-mode equivalents */
+[data-theme="dark"] {
+  --color-bg-white:         #1A1D21;
+  --color-surface-light:    #2B2D30;
+  --color-surface-hover:    #2C2F33;
+  --color-divider:          #3A3C3F;
+  --color-disabled:         #4A4C50;
+  --color-text-primary:     #E1E2E3;
+  --color-text-secondary:   #B4B4B5;
+  --color-text-tertiary:    #87888A;
+  --color-sidebar-bg:       #2B2D30;
+  --color-channel-bg:       #2C2F33;
+}
+Primary Purple (#4A154B): Top header bar, selected sidebar items, primary buttons.
+
+Primary Blue (#1264A3): Hover/active states, focus outlines, links.
+
+Accents (Green/Yellow/Red): Presence indicators, success/warning/error badges.
+
+Neutrals: Backgrounds, text, borders, and hover states.
+
+2. Typography (Fonts)
+Use a humanist sans-serif stack. Ensure all font files are loaded (e.g., via Google Fonts).
+
+css
+Copy
+Edit
+body {
+  font-family: "Lato", "Helvetica Neue", Arial, sans-serif;
+}
+Primary Font: Lato (load from Google Fonts).
+
+Google Fonts link:
+
+perl
+Copy
+Edit
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;500;600;700&display=swap" rel="stylesheet">
+Fallbacks: "Helvetica Neue", Arial, sans-serif.
+
+2.1. Font Weights
+400 (Regular): Body text, message content.
+
+500 (Medium): Sidebar/channel names.
+
+600 (Semi-bold): Buttons, modal titles.
+
+700 (Bold): Channel headers, sender names.
+
+2.2. Font Sizes & Line-Heights
+UI Element	Font-Size	Line-Height	Weight
+Body / Message Text	14 px (0.875 rem)	1.4	400
+Channel List / Sidebar Items	13 px (0.8125 rem)	1.4	500
+Channel Header / Title	16 px (1 rem)	1.5	600
+Button Text	14 px (0.875 rem)	1.4	600
+Timestamps / Metadata	12 px (0.75 rem)	1.4	400
+Input Placeholder	14 px (0.875 rem)	1.4	400
+
+3. Color Palette (Full Swatch)
+Copy these variables into your CSS or Tailwind config.
+
+css
+Copy
+Edit
+:root {
+  /* Primary */
+  --slack-purple:    #4A154B;
+  --slack-blue:      #1264A3;
+
+  /* Status Accents */
+  --slack-green:     #2EB67D;
+  --slack-yellow:    #ECB22E;
+  --slack-red:       #E01E5A;
+
+  /* Channel Tag Pastels */
+  --tag-blue:        #36C5F0;
+  --tag-green:       #2EB67D;
+  --tag-yellow:      #ECB22E;
+  --tag-pink:        #E01E5A;
+  --tag-purple:      #8E44AD;
+  --tag-orange:      #E37222;
+
+  /* Neutrals */
+  --bg-white:        #FFFFFF;
+  --surface-light:   #F8F8F8;
+  --surface-hover:   #F4F4F4;
+  --divider:         #E0E0E0;
+  --disabled:        #C4C4C4;
+  --text-primary:    #1D1C1D;
+  --text-secondary:  #616061;
+  --text-tertiary:   #A3A2A3;
+  --sidebar-bg:      #F4F5F6;
+  --channel-bg:      #FFFFFF;
+}
+4. Spacing System
+Slack’s layout follows an 8 px/16 px rhythm. Base unit: 4 px. Use multiples for consistency.
+
+XS (4 px / 0.25 rem)
+
+S (8 px / 0.5 rem)
+
+M (16 px / 1 rem)
+
+L (24 px / 1.5 rem)
+
+XL (32 px / 2 rem)
+
+2XL (48 px / 3 rem)
+
+4.1. Component Spacing Examples
+Component	Padding	Margin
+Sidebar (vertical)	16 px (1 rem) top/bottom	—
+Sidebar item	8 px (0.5 rem) top/bottom	4 px (0.25 rem) between items
+Channel pane padding	16 px (1 rem) all around	—
+Message list padding	16 px (1 rem) left/right, 16 px top	12 px (0.75 rem) bottom between msgs
+Avatar → Text gap	8 px (0.5 rem)	—
+Composer container	12 px (0.75 rem) top/bottom, 24 px (1.5 rem) horizontal	—
+Input/Textarea padding	12 px (0.75 rem) all around	—
+Button padding	8 px (0.5 rem) top/bottom, 16 px (1 rem) horizontal	—
+
+Gutter between channel pane and message pane: 24 px (1.5 rem).
+
+Consistent vertical rhythm: Always use multiples of 4 px.
+
+5. UI Patterns
+5.1. Sidebar / Navigation
+css
+Copy
+Edit
+.sidebar {
+  background-color: var(--color-sidebar-bg);
+  color: var(--color-text-primary);
+  width: 24rem;               /* 384 px */
+  padding: 1rem 0;            /* 16 px vertical */
+}
+
+.sidebar .workspace-name {
+  font-size: 1.125rem;        /* 18 px */
+  font-weight: 700;
+  padding: 0 1rem;            /* 16 px horizontal */
+  margin-bottom: 1rem;        /* 16 px */
+}
+
+.sidebar .channel-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;       /* 8 px × 16 px */
+  border-radius: 4px;
+  font-size: 0.8125rem;       /* 13 px */
+  color: var(--color-text-primary);
+}
+
+.sidebar .channel-item:hover {
+  background-color: var(--color-surface-hover);
+  cursor: pointer;
+}
+
+.sidebar .channel-item.selected {
+  background-color: var(--color-divider);
+  color: var(--color-primary-blue);
+}
+Hover: --surface-hover (#F4F4F4).
+
+Selected: --divider (#E0E0E0) background, text/icon in --primary-blue (#1264A3).
+
+Unread badge: circle, --accent-red (#E01E5A) background, white number.
+
+5.2. Channel Pane
+css
+Copy
+Edit
+.channel-pane {
+  background-color: var(--color-channel-bg);
+  color: var(--color-text-primary);
+  width: 16rem;               /* 256 px */
+  border-right: 1px solid var(--color-divider);
+  padding-top: 1rem;          /* 16 px */
+}
+
+.channel-pane .section-title {
+  font-size: 0.875rem;        /* 14 px */
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin: 0 1rem 0.5rem;      /* 16 px horizontal, 8 px bottom */
+}
+
+.channel-pane .channel-list-item {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;        /* 14 px */
+  padding: 0.5rem 1rem;       /* 8 px × 16 px */
+  border-radius: 4px;
+  color: var(--color-text-primary);
+}
+
+.channel-pane .channel-list-item:hover {
+  background-color: var(--color-surface-hover);
+  cursor: pointer;
+}
+
+.channel-pane .channel-list-item.selected {
+  background-color: var(--color-divider);
+  color: var(--color-primary-blue);
+}
+Section headers: 14 px, weight 500, color --text-secondary (#616061).
+
+Hover: --surface-hover (#F4F4F4).
+
+5.3. Message Pane
+5.3.1. Header (Channel Title & Icons)
+css
+Copy
+Edit
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--color-bg-white);
+  border-bottom: 1px solid var(--color-divider);
+  padding: 0 1.5rem;              /* 24 px horizontal */
+  height: 3.5rem;                 /* 56 px */
+}
+
+.message-header .channel-title {
+  font-size: 1rem;                /* 16 px */
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.message-header .header-icon {
+  width: 20px;
+  height: 20px;
+  fill: var(--color-text-secondary);
+}
+
+.message-header .header-icon:hover {
+  fill: var(--color-text-primary);
+  cursor: pointer;
+}
+Divider: 1 px --divider (#E0E0E0).
+
+Channel title: 16 px, weight 600, --text-primary (#1D1C1D).
+
+5.3.2. Message List
+css
+Copy
+Edit
+.message-list {
+  background-color: var(--color-bg-white);
+  padding: 1rem 1.5rem;     /* 16 px top/bottom, 24 px left/right */
+  overflow-y: auto;
+}
+
+.message-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;   /* 12 px bottom */
+}
+
+.message-item .avatar {
+  width: 2rem;              /* 32 px */
+  height: 2rem;             /* 32 px */
+  border-radius: 4px;
+  margin-right: 0.75rem;    /* 12 px */
+}
+
+.message-item .content {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-item .sender-name {
+  font-size: 0.875rem;      /* 14 px */
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 0.125rem;  /* 2 px */
+}
+
+.message-item .text {
+  font-size: 0.875rem;      /* 14 px */
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.message-item .timestamp {
+  font-size: 0.75rem;       /* 12 px */
+  color: var(--color-text-tertiary);
+  margin-left: 0.5rem;      /* 8 px */
+}
+
+.message-item .actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.5rem;              /* 8 px between icons */
+}
+
+.message-item .action-icon {
+  width: 16px;
+  height: 16px;
+  fill: var(--color-text-tertiary);
+}
+
+.message-item .action-icon:hover {
+  fill: var(--color-text-primary);
+  cursor: pointer;
+}
+Avatar: 32 × 32 px, border-radius 4 px.
+
+Sender name: 14 px, weight 600, --text-primary.
+
+Message text: 14 px, --text-primary.
+
+Timestamp: 12 px, --text-tertiary.
+
+Hover on a message row (optional): background --surface-hover (#F4F4F4).
+
+5.4. Thread View (Inline)
+css
+Copy
+Edit
+.thread-container {
+  background-color: var(--color-surface-light);
+  border-left: 4px solid var(--color-primary-blue);
+  margin-left: 2.75rem;     /* 32 + 8 px indent */
+  padding: 0.75rem 1rem;    /* 12 px × 16 px */
+  border-radius: 4px;
+}
+
+.thread-message {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;   /* 12 px */
+}
+
+.thread-message .avatar {
+  width: 1.5rem;            /* 24 px */
+  height: 1.5rem;           /* 24 px */
+  border-radius: 4px;
+  margin-right: 0.5rem;     /* 8 px */
+}
+
+.thread-message .content {
+  flex: 1;
+}
+
+.thread-message .sender-name {
+  font-size: 0.8125rem;     /* 13 px */
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.thread-message .text {
+  font-size: 0.8125rem;     /* 13 px */
+  color: var(--color-text-primary);
+  margin-top: 0.25rem;      /* 4 px */
+}
+
+.thread-message .timestamp {
+  font-size: 0.75rem;       /* 12 px */
+  color: var(--color-text-tertiary);
+  margin-left: 0.5rem;      /* 8 px */
+}
+Thread container: background --surface-light (#F8F8F8) with 4 px --primary-blue border.
+
+Nested spacing: 12 px vertical, 8 px between avatar & content.
+
+5.5. Composer / Input Bar
+css
+Copy
+Edit
+.composer {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--color-divider);
+  background-color: var(--color-bg-white);
+  padding: 0.75rem 1.5rem;   /* 12 px × 24 px */
+  position: sticky;
+  bottom: 0;
+}
+
+.composer textarea {
+  flex: 1;
+  font-size: 0.875rem;       /* 14 px */
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+  padding: 0.75rem;          /* 12 px */
+  resize: vertical;
+  min-height: 2.5rem;        /* 40 px */
+  max-height: 8rem;          /* 128 px */
+}
+
+.composer textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.composer .attach-icon {
+  margin-left: 0.75rem;      /* 12 px */
+  cursor: pointer;
+  fill: var(--color-text-secondary);
+}
+
+.composer .attach-icon:hover {
+  fill: var(--color-text-primary);
+}
+
+.composer .send-button {
+  background-color: var(--color-primary-purple);
+  color: var(--color-bg-white);
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;       /* 14 px */
+  font-weight: 600;
+  padding: 0.5rem 1rem;      /* 8 px × 16 px */
+  margin-left: 0.75rem;      /* 12 px */
+  cursor: pointer;
+}
+
+.composer .send-button:disabled {
+  background-color: var(--color-disabled);
+  cursor: not-allowed;
+}
+Textarea border: --divider (#E0E0E0); focus outline: 2 px --primary-blue (#1264A3) with subtle box-shadow.
+
+Send button: --primary-purple (#4A154B), white text; hover: darken ~10%.
+
+Disabled: --disabled (#C4C4C4).
+
+5.6. Buttons
+5.6.1. Primary Button
+css
+Copy
+Edit
+.btn-primary {
+  background-color: var(--color-primary-purple);
+  color: var(--color-bg-white);
+  border-radius: 4px;
+  padding: 8px 16px;         /* 0.5 rem × 1 rem */
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: #5E1960; /* ~10% darker */
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  background-color: var(--color-disabled);
+  cursor: not-allowed;
+}
+5.6.2. Secondary Button (Outline/Text)
+css
+Copy
+Edit
+.btn-secondary {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+  padding: 8px 16px;         /* 0.5 rem × 1 rem */
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-surface-hover);
+  cursor: pointer;
+}
+5.6.3. Icon-Only Button
+css
+Copy
+Edit
+.icon-button {
+  background: transparent;
+  padding: 8px;              /* 0.5 rem */
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button:hover {
+  background-color: var(--color-surface-hover);
+  cursor: pointer;
+}
+5.7. Form Fields & Inputs
+css
+Copy
+Edit
+.input-field,
+.textarea-field {
+  width: 100%;
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+  padding: 12px;              /* 0.75 rem */
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-white);
+  resize: vertical;
+}
+
+.input-field:focus,
+.textarea-field:focus {
+  outline: none;
+  border-color: var(--color-primary-blue);
+  box-shadow: 0 0 0 2px rgba(18, 100, 163, 0.2);
+}
+
+.input-field::placeholder,
+.textarea-field::placeholder {
+  color: var(--color-text-tertiary);
+}
+Label: 14 px, weight 500, color --text-secondary (#616061), margin-bottom 4 px.
+
+5.8. Cards & Panels
+css
+Copy
+Edit
+.card {
+  background-color: var(--color-bg-white);
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+  padding: 16px;              /* 1 rem */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+Use: File preview panels, modal content, grouped sidebars.
+
+5.9. Alerts & Toasts
+css
+Copy
+Edit
+.toast-container {
+  position: fixed;
+  bottom: 16px;               /* 1 rem */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;                   /* 0.5 rem between toasts */
+  z-index: 1000;
+}
+
+.toast {
+  background-color: var(--color-text-primary);
+  color: var(--color-bg-white);
+  border-radius: 4px;
+  padding: 12px;              /* 0.75 rem */
+  font-size: 14px;
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.toast.error {
+  background-color: var(--color-accent-red);
+}
+
+.toast.success {
+  background-color: var(--color-accent-green);
+}
+6. Iconography
+Choose one consistent SVG icon library. Below are recommended libraries and usage examples.
+
+6.1. Heroicons (React)
+Documentation & SVGs: https://heroicons.com/
+
+GitHub & React Package: https://github.com/tailwindlabs/heroicons
+
+Install:
+
+bash
+Copy
+Edit
+npm install @heroicons/react
+Usage (Outline icons, 1.25 rem = 20 px):
+
+jsx
+Copy
+Edit
+import { PaperAirplaneIcon, PaperClipIcon, SearchIcon } from "@heroicons/react/outline";
+
+function SendButton() {
+  return (
+    <button className="btn-primary flex items-center gap-2">
+      <PaperAirplaneIcon className="h-5 w-5" />
+      Send
+    </button>
+  );
+}
+
+function AttachIcon() {
+  return <PaperClipIcon className="h-5 w-5 text-gray-500 hover:text-gray-800 cursor-pointer" />;
+}
+Common Sizes & Colors:
+
+20 × 20 px (h-5 w-5) for primary icons.
+
+Default fill: --text-secondary (#616061); on hover: --text-primary (#1D1C1D).
+
+6.2. React-Feather (Feather Icons)
+GitHub & Docs: https://github.com/feathericons/react-feather
+
+Install:
+
+bash
+Copy
+Edit
+npm install react-feather
+Usage:
+
+jsx
+Copy
+Edit
+import { Send, Paperclip, Search } from "react-feather";
+
+function SendButton() {
+  return (
+    <button className="btn-primary flex items-center gap-2">
+      <Send size={16} />
+      Send
+    </button>
+  );
+}
+
+function AttachIcon() {
+  return <Paperclip size={16} className="text-gray-500 hover:text-gray-800 cursor-pointer" />;
+}
+7. UI Patterns & Best Practices
+7.1. List Items (Channels, Messages, Files)
+Hover: background-color: var(--color-surface-hover) (#F4F4F4), border-radius: 4px.
+
+Active/Selected: background-color: var(--color-divider) (#E0E0E0), text/icon in var(--color-primary-blue) (#1264A3).
+
+Padding: 8 px (0.5 rem) vertical, 16 px (1 rem) horizontal.
+
+Unread Badge: background var(--color-accent-red) (#E01E5A), white text.
+
+7.2. Buttons
+Primary:
+
+Background var(--color-primary-purple) (#4A154B), white text, border-radius 4 px, padding 8 px × 16 px.
+
+Hover: darken purple ~10%.
+
+Disabled: background var(--color-disabled) (#C4C4C4), cursor not-allowed.
+
+Secondary:
+
+Transparent background, border 1 px var(--color-divider), padding 8 px × 16 px, text var(--text-primary) (#1D1C1D).
+
+Hover: background var(--color-surface-hover) (#F4F4F4).
+
+Icon-Only:
+
+Padding 8 px, border-radius 4 px, background transparent.
+
+Hover: background var(--color-surface-hover).
+
+7.3. Form Fields & Inputs
+Inputs / Textareas:
+
+Border 1 px var(--color-divider), border-radius 4 px, padding 12 px all around.
+
+Focus: outline none; border color var(--color-primary-blue), box-shadow 0 0 0 2 px rgba(18, 100, 163, 0.2).
+
+Placeholder color var(--text-tertiary) (#A3A2A3).
+
+7.4. Cards & Panels
+Light Card:
+
+Background var(--bg-white) (#FFFFFF), border 1 px var(--divider) (#E0E0E0), border-radius 4 px, padding 16 px, box-shadow 0 1 px 3 px rgba(0, 0, 0, 0.1).
+
+7.5. Threads
+Inline Thread:
+
+Parent message indent: avatar width (32 px) + 8 px.
+
+Background var(--surface-light) (#F8F8F8), border-left 4 px var(--primary-blue) (#1264A3), padding 12 px × 16 px, border-radius 4 px.
+
+7.6. Toasts & Alerts
+Container: fixed bottom-center, 16 px off bottom, flex column, gap 8 px.
+
+Toast:
+
+Background var(--text-primary) (#1D1C1D), white text (#FFFFFF), border-radius 4 px, padding 12 px, minimum width 200 px, box-shadow 0 2 px 8 px rgba(0, 0, 0, 0.2).
+
+.error variant: background var(--accent-red) (#E01E5A).
+
+.success variant: background var(--accent-green) (#2EB67D).
+
+8. Third-Party Tools & Documentation Links
+Include these links so the coding agent can reference official docs for setup and usage.
+
+React
+
+Official documentation: https://reactjs.org/docs/getting-started.html
+
+Tailwind CSS
+
+Official documentation: https://tailwindcss.com/docs
+
+Installation guide: https://tailwindcss.com/docs/installation
+
+Heroicons (React)
+
+Website & SVG library: https://heroicons.com/
+
+React package & docs: https://github.com/tailwindlabs/heroicons
+
+React-Feather (Feather Icons)
+
+GitHub repo & docs: https://github.com/feathericons/react-feather
+
+Google Fonts (Lato)
+
+Lato font family: https://fonts.google.com/specimen/Lato
+
+Figma Resources (for reference/mockups)
+
+Slack UI Kit (community): https://www.figma.com/community/file/856193019092404741/Slack-UI-Kit
+
+Tailwind UI Kit (optional): https://www.figma.com/community/plugin/1003206388533120894/Tailwind-Classes-to-FIGMA
+
+Accessibility & Contrast Checkers
+
+WebAIM Contrast Checker: https://webaim.org/resources/contrastchecker/
+
+Accessible-Colors npm: https://www.npmjs.com/package/accessible-colors
+
+React Hooks / Context Patterns
+
+Official React Context docs: https://reactjs.org/docs/context.html
+
+React Hooks rules & best practices: https://reactjs.org/docs/hooks-rules.html
+
+9. Design References & Inspiration
+Use these as inspiration or to verify that the cloned UI matches Slack’s look and feel.
+
+Slack Brand Guidelines
+https://a.slack-edge.com/bv1-ecdcbb-brandguidelines
+
+Slack Figma UI Kit (Unofficial)
+https://www.figma.com/community/file/856193019092404741/Slack-UI-Kit
+
+Dribbble Slack UI Concepts
+https://dribbble.com/search/slack-ui
+
+Mobbin (Mobile & Web Screenshots)
+https://mobbin.design/ (search “Slack”)
+
+UI-Patterns.com (Chat UI Patterns)
+https://ui-patterns.com/ (search for “chat UI,” “sidebar menu”)
+
+Usage Notes
+CSS Variables vs. Tailwind: You can define all colors, font families, and spacing in your tailwind.config.js as custom tokens, or keep them as CSS variables if not using Tailwind.
+
+Component Library: Build reusable React components (e.g., SidebarItem, MessageBubble, ThreadContainer, PrimaryButton) that reference these variables/utilities to guarantee consistency.
+
+Accessibility: Regularly run contrast checks (e.g., --text-primary on --bg-white) to ensure WCAG AA compliance.
+
+Dark Mode (Future): All :root variables have dark-mode equivalents under [data-theme="dark"]. You can toggle by setting data-theme="dark" on <html> or <body>.
+
+
+By following this guide exactly—and referencing the linked documentation—the coding agent can implement a pixel-perfect, Slack-like frontend without ambiguity.

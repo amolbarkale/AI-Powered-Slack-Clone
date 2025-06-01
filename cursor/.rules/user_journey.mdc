@@ -1,0 +1,630 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Slack-Clone User Flows
+
+Below are the detailed user flows for the MVP Slack-clone (React + Supabase). Each flow describes step-by-step interactions, screens/components, and expected outcomes—ensuring no ambiguity for implementation. These flows cover:
+
+1. **Onboarding & Authentication**  
+2. **Workspace Selection / Creation**  
+3. **Channel Management (List, Create, Select)**  
+4. **Posting & Threading Messages**  
+5. **Uploading Attachments (PDF/TXT)**  
+6. **Unread Counts & Read Tracking**  
+7. **Basic Profile & Sign-Out**
+
+> **Assumption:** At this stage, AI features (Org Brain, Suggest Reply, Tone Meter, Meeting Notes) are out of scope; they will be layered in Phase 2. All flows below pertain to core chat functionality.
+
+---
+
+## 1. Onboarding & Authentication
+
+### 1.1. Screen: Landing / Sign Up vs Sign In
+1. **Display**  
+   - Two tabs/buttons:  
+     - **Sign In** (default if user has an account)  
+     - **Sign Up** (for new users)  
+   - Email & Password fields underneath, plus “Submit” button.
+
+2. **User Action: Click “Sign Up” (if new)**
+   - Fields visible:  
+     1. **Full Name** (text input)  
+     2. **Email** (text input, validate format)  
+     3. **Password** (password input, validate minimum length)  
+     4. **Workspace Name** (text input)  
+   - **Submit** disabled until all fields non-empty and valid.
+
+3. **On Submit (Sign Up)**
+   - **Client** calls `supabase.auth.signUp({ email, password })`.  
+   - On success:  
+     1. Trigger (DB or Edge Function) automatically:  
+        - Create a new `workspaces` row (`name = Workspace Name`, `created_by = auth.uid()`).  
+        - Create a `users` row (`auth_id = auth.uid()`, `full_name`, `email`, `workspace_id = new workspace.id`).  
+     2. **Client** receives session, redirects to **Workspace Selection** (1.2) or directly into the newly created workspace’s channel list.
+
+4. **Errors (Sign Up)**
+   - Invalid email format → show inline error.
+   - Weak password (e.g., < 6 characters) → show inline error.
+   - Workspace Name already exists (conflict) → show “Workspace name already taken.”
+
+---
+
+### 1.2. Screen: Workspace Selection
+1. **Purpose**: In an organization that allows multiple workspaces per user (future), list all workspaces. For MVP, new users see exactly one workspace created on sign-up.
+2. **Display**  
+   - Title: “Choose a Workspace”  
+   - List of workspace cards: each shows workspace name and “Enter” button.  
+   - “Create New Workspace” button (hidden/disabled if user already has one workspace in MVP).
+
+3. **User Action: Click “Enter” on a workspace**
+   - **Client** stores `workspace_id` in context.  
+   - Navigate to **Channel List** (Flow 3).
+
+4. **Error**  
+   - If no workspace found (shouldn’t occur), prompt to create one.
+
+---
+
+### 1.3. Screen: Sign In (Returning User)
+1. **Display** (same fields as sign up minus “Full Name” & “Workspace Name”)
+   - **Email**  
+   - **Password**  
+   - “Sign In” button (disabled until both fields non-empty and valid format).
+
+2. **On Submit (Sign In)**
+   - **Client** calls `supabase.auth.signIn({ email, password })`.  
+   - On success:  
+     1. **Client** queries `users` table where `auth_id = auth.uid()` to fetch `full_name`, `workspace_id`.  
+     2. If user has multiple workspaces (future), redirect to **Workspace Selection**; else, proceed to **Channel List** with `workspace_id` loaded.
+
+3. **Errors (Sign In)**
+   - Incorrect email/password → show “Invalid credentials.”  
+   - Network/Server error → show “Unable to reach server. Try again.”
+
+---
+
+## 2. Workspace Selection / Creation (MVP)
+
+> **Note:** In MVP, each user has exactly one workspace created at sign-up. This flow exists primarily for future multi-workspace support.
+
+### 2.1. Screen: Workspace Dashboard
+1. **Display**  
+   - If user has exactly one workspace: skip to **Channel List**.  
+   - If multiple: list each workspace with name and “Enter” button.
+
+2. **User Action: “Create New Workspace” (Future)**
+   - Opens **“New Workspace” Modal**: input field for **Workspace Name**.  
+   - “Create” button (disabled until non-empty).  
+   - On submission: insert `workspaces` row (`name`, `created_by = auth.uid()`), then insert `users` row linking the new workspace.  
+   - Redirect to **Channel List**.
+
+---
+
+## 3. Channel Management
+
+### 3.1. Screen: Channel List (Sidebar + Pane)
+
+> This is the main “Home” or “Dashboard” after sign-in. It consists of:
+> - **Left Sidebar** (static, full-height)  
+> - **Channel Pane** (mid-left, lists channels)  
+> - **Message Pane** (center, shows messages for selected channel)  
+> - **Composer** (bottom of Message Pane)  
+
+#### 3.1.1. Left Sidebar
+1. **Shows**  
+   - **Workspace Name/Logo** (top; clicking it could open workspace settings in future).  
+   - **Channels Section**: header “Channels,” then list of all public channels in this workspace.  
+   - **“+ New Channel” Button** (below channel list). Disabled/hidden if workspace already has 10 channels.  
+   - **Direct Messages** (future; hidden in MVP since DMs aren’t implemented).  
+   - **User Profile Icon** (bottom; clicking opens profile menu: “Sign Out” link).
+
+2. **On Hover** (over a channel item)  
+   - Background: `--surface-hover` (#F4F4F4).  
+   - If selected, background: `--divider` (#E0E0E0) and text/icon: `--primary-blue` (#1264A3).
+
+3. **On Click (Select Channel)**  
+   - Fetch last 50 messages for that `channel_id` (Flow 3.2).  
+   - Mark channel as read (Flow 6).  
+   - Navigate/scroll to Message Pane for that channel.
+
+---
+
+#### 3.1.2. “+ New Channel” Modal / Flow
+1. **User Action: Click “+ New Channel”**
+   - **Display Modal** with:  
+     1. **Channel Name** (input, lowercase/no spaces ideally)  
+     2. **Description** (optional textarea)  
+     3. “Create” and “Cancel” buttons.
+
+2. **Validation**  
+   - **Channel Name**: non-empty, unique among this workspace (client can check list; backend will enforce via unique constraint).  
+   - If workspace already has 10 channels: disable “+ New Channel” button and show tooltip “Maximum of 10 channels allowed.”
+
+3. **On Submit**  
+   - **Client** calls:
+     ```js
+     supabase.from("channels").insert([{
+       workspace_id: currentWorkspaceId,
+       name: channelName,
+       description,
+       created_by: currentUserId
+     }]).single();
+     ```
+   - On success:  
+     1. Close modal.  
+     2. Refresh channel list (Supabase real-time subscription or manual re-fetch).  
+     3. Automatically select the new channel (navigate to it).
+
+4. **Errors**  
+   - Name collision: show “Channel name already exists.”  
+   - Network error: show “Unable to create channel—try again.”
+
+---
+
+## 4. Posting & Threading Messages
+
+### 4.1. Screen: Message Pane (for Selected Channel)
+
+> Layout in Message Pane:
+> - **Header** (channel name + actions)  
+> - **Scrollable Message List**  
+> - **Composer** (fixed at bottom)
+
+#### 4.1.1. Header (Top of Message Pane)
+1. **Displays**  
+   - **Channel Name** (e.g., `#project-alpha`) in 16 px, weight 600.  
+   - **Action Icons** (e.g., search, channel settings; in MVP, these can be placeholders or hidden).  
+
+2. **User Action: Click on an Icon (e.g., Search)**
+   - Future implementation: open search bar/modal. For MVP, icons can be non-interactive or disabled.
+
+---
+
+#### 4.1.2. Message List (Center)
+
+1. **On Channel Select (Flow 3.1.2)**  
+   - **Client** fetches:
+     ```js
+     supabase
+       .from("messages")
+       .select("id, user_id, content, parent_message_id, created_at")
+       .eq("workspace_id", workspaceId)
+       .eq("channel_id", channelId)
+       .order("created_at", { ascending: true })
+       .limit(50);
+     ```
+   - **Client** subscribes to Supabase Realtime on `messages` filtered by `channel_id`.  
+   - **Render** each message in chronological order (oldest at top, newest at bottom).
+
+2. **Displaying a Message**  
+   - **Avatar** (32 × 32 px) on left, loaded from `users.avatar_url` or placeholder.  
+   - **Sender Name** (14 px, weight 600, color `--text-primary`)  
+   - **Message Text** (14 px, `--text-primary`)  
+   - **Timestamp** (12 px, `--text-tertiary`)  
+   - **Action Icons** (reply, react, more) hidden by default; on hover, fade in at right.
+
+3. **Receiving a New Message (Real-Time)**  
+   - Supabase triggers a “INSERT” event on `messages`.  
+   - **Client** callback:  
+     1. Append the new message to the list if it belongs to the currently selected channel.  
+     2. If the channel is inactive (user is viewing a different channel), **client** increments the “unread count” badge in the sidebar (Flow 6).
+
+4. **On Hover Over a Message**  
+   - Show action icons (reply, emoji, etc.). Icons appear at `opacity: 1`; otherwise `opacity: 0`.
+
+---
+
+#### 4.1.3. Threaded Replies (Inline)
+
+1. **User Action: Click “Reply” Icon on a Message**
+   - Expand a **Thread Container** below that parent message:  
+     - Background: `--surface-light` (#F8F8F8)  
+     - Left border: 4 px `--primary-blue` (#1264A3)  
+     - Padding: 12 px × 16 px  
+   - Fetch all replies where `parent_message_id = this message.id`:
+     ```js
+     supabase
+       .from("messages")
+       .select("id, user_id, content, created_at")
+       .eq("workspace_id", workspaceId)
+       .eq("parent_message_id", parentMessageId)
+       .order("created_at", { ascending: true });
+     ```
+   - **Render** each reply (similar style but smaller avatar 24 × 24 px, font 13 px).
+
+2. **Composer Within Thread**  
+   - At bottom of thread container: a mini-composer (textarea + send button).  
+   - **On Submit (Post Reply)**:  
+     ```js
+     supabase.from("messages").insert([{
+       workspace_id,
+       channel_id,
+       user_id: currentUserId,
+       content: replyText,
+       parent_message_id: parentMessageId
+     }]).single();
+     ```
+   - On success: append new reply to thread list in real time.
+
+3. **Collapse Thread**  
+   - Clicking “Close Thread” icon or parent’s “Reply” again collapses the thread container (unmount).
+
+---
+
+### 4.2. Composer / Sending a New Message
+
+1. **Composer Layout** (always visible at bottom of Message Pane)  
+   - **Textarea**:  
+     - Placeholder: “Message #channel-name”  
+     - Border: 1 px `--divider`, border-radius 4 px, padding 12 px.  
+     - Auto-expand vertically up to 128 px.  
+   - **Attach File Icon** (paperclip) to left of the send button.  
+   - **Send Button** (primary, `--slack-purple` #4A154B, white text): disabled until textarea non-empty.
+
+2. **Typing a Message**  
+   - As user types, textarea height expands (CSS `max-height: 8rem`).  
+   - Placeholder disappears once content non-empty.
+
+3. **Attach File**  
+   - **User Action: Click paperclip icon**  
+     - Open system file picker (accept only `.pdf` and `.txt`).  
+     - **Client** verifies file size ≤ 10 MB and correct extension; if invalid, show inline error.  
+   - On selection: store file object in state; show filename next to textarea (optionally preview “PDF” icon or “TXT” icon).
+
+4. **On Send**  
+   - **If attachment present**:  
+     1. Upload file to Supabase Storage (bucket `attachments-bucket`):  
+        ```js
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = `workspaces/${workspaceId}/channel_${channelId}/${fileName}`;
+
+        const { data: uploadData, error: uploadErr } = await supabaseClient
+          .storage
+          .from("attachments-bucket")
+          .upload(filePath, file, { cacheControl: "3600", upsert: false });
+
+        if (uploadErr) handleError(uploadErr);
+        else {
+          // Insert attachment metadata
+          const { data: attachment, error: attachErr } = await supabase
+            .from("attachments")
+            .insert([{
+              workspace_id: workspaceId,
+              channel_id: channelId,
+              message_id: newMessageId,  // get this after inserting text message
+              storage_path: uploadData.Key,
+              filename: file.name,
+              uploaded_by: currentUserId
+            }]).single();
+        }
+        ```
+     2. Then insert the text message (with `parent_message_id: null`) and retrieve `newMessageId` before inserting into `attachments`.  
+   - **If no attachment**:  
+     1. Insert directly into `messages` with fields:  
+        ```js
+        supabase.from("messages").insert([{
+          workspace_id,
+          channel_id,
+          user_id: currentUserId,
+          content: messageText,
+          parent_message_id: null
+        }]).single();
+        ```
+   - **After Insert**:  
+     - Clear textarea (and any attachment state).  
+     - Supabase Realtime triggers auto-append event to all clients subscribed to this channel.
+
+5. **Error Handling (Send)**
+   - Network failure: show toast “Message failed to send—retry.”  
+   - RLS or permission error: show toast “Permission denied.”
+
+---
+
+## 5. Uploading Attachments (PDF / TXT)
+
+_Attachment upload is part of the send-message flow (4.2), but here is a standalone sequence to clarify._
+
+### 5.1. User Action: Select File to Attach
+1. **Client** only accepts `.pdf` or `.txt` (HTML `accept="application/pdf,text/plain"`).  
+2. **Client-side Validation**:  
+   - **File type**: check extension or MIME type.  
+   - **File size**: ensure ≤ 10 MB.  
+   - If either validation fails, show inline error and prevent upload.
+
+### 5.2. Upload to Supabase Storage
+1. **Compute** a unique file path:  
+workspaces/{workspace_id}/channel_{channel_id}/{uuid4}.{ext}
+
+css
+Copy
+Edit
+2. **Client** calls:
+```js
+supabaseClient
+  .storage
+  .from("attachments-bucket")
+  .upload(filePath, fileObject, { cacheControl: "3600", upsert: false });
+On Success
+
+Retrieve returned Key (object path).
+
+Client immediately displays a “Uploading…” spinner or progress indicator next to the composer.
+
+On completion, hide spinner and indicate “Attached: filename.pdf”.
+
+On Error
+
+Show toast “Attachment upload failed—try again.”
+
+Allow user to re-attempt or remove the file.
+
+5.3. Save Attachment Metadata
+Client inserts into attachments:
+
+js
+Copy
+Edit
+supabase.from("attachments").insert([{
+  workspace_id,
+  channel_id,
+  message_id: <pending—new message row ID>,
+  storage_path: uploadedKey,
+  filename: file.name,
+  uploaded_by: currentUserId
+}]).single();
+On Success
+
+Attachment metadata row created.
+
+Composer display “Attached: filename” turns into clickable link once message row is created.
+
+Retrieve & Display
+
+Client calls:
+
+js
+Copy
+Edit
+supabaseClient
+  .storage
+  .from("attachments-bucket")
+  .createSignedUrl(uploadedKey, 60); // 60 seconds
+Use returned signedURL to render a “View PDF” or “Download TXT” link under the published message.
+
+6. Unread Counts & Read Tracking
+6.1. Table: user_channel_reads
+Each row:
+
+workspace_id
+
+user_id
+
+channel_id
+
+last_read_at (timestamp)
+
+6.2. On Channel Open (Mark as Read)
+Trigger when user clicks or navigates to a channel:
+
+js
+Copy
+Edit
+supabase.from("user_channel_reads").upsert({
+  workspace_id: currentWorkspaceId,
+  user_id: currentUserId,
+  channel_id: selectedChannelId,
+  last_read_at: new Date().toISOString()
+}, { onConflict: ["user_id", "channel_id"] });
+Result:
+
+If row didn’t exist, it’s created.
+
+If row exists, last_read_at is updated to “now.”
+
+6.3. Calculating Unread Count (Sidebar Badge)
+RPC Function (in Supabase SQL editor):
+
+sql
+Copy
+Edit
+CREATE FUNCTION public.get_unread_count(
+  p_user_id UUID,
+  p_channel_id UUID
+) RETURNS TABLE (unread_count BIGINT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT COUNT(*)::BIGINT
+  FROM public.messages m
+  JOIN public.user_channel_reads ucr
+    ON ucr.user_id = p_user_id
+    AND ucr.channel_id = p_channel_id
+    AND ucr.workspace_id = m.workspace_id
+  WHERE m.channel_id = p_channel_id
+    AND m.created_at > ucr.last_read_at;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+Client periodically (or on new message via Realtime) calls:
+
+js
+Copy
+Edit
+const { data: { unread_count }, error } = await supabase.rpc("get_unread_count", {
+  p_user_id: currentUserId,
+  p_channel_id: channelId
+});
+Render the badge next to channel name if unread_count > 0. Show number or “•” if count is high (UI decision).
+
+Realtime Update
+
+When a new message arrives in a channel not currently open:
+
+Client’s Realtime listener sees INSERT event.
+
+Compare created_at > last_read_at (cached) → increment badge count by 1.
+
+Clearing Badge
+
+As soon as user clicks channel, call “Mark as Read” (6.2) which resets last_read_at.
+
+Fetch updated unread_count (should now be 0) → hide badge.
+
+7. Basic Profile & Sign-Out Flow
+7.1. Screen: User Profile Menu (Accessible from Sidebar)
+Display
+
+User avatar (32 × 32 px) and full name.
+
+Options (vertical list):
+
+Profile & Settings (future)
+
+Sign Out
+
+User Action: Click “Sign Out”
+
+Client calls supabase.auth.signOut().
+
+Client clears any user-specific context/state (e.g., workspace_id, currentUserId).
+
+Redirect to Landing / Sign In screen.
+
+8. Edge Cases & Error States
+8.1. Network/intermittent Connectivity
+Realtime Disconnect
+
+If Supabase Realtime subscription disconnects, show a small banner:
+
+Copy
+Edit
+“Reconnecting…”
+Retry until reconnected; once reconnected, banner disappears.
+
+Failed API Calls
+
+On any failed fetch/insert (channels, messages, attachments), show a toast:
+
+“Unable to fetch channels—check your internet connection.”
+
+“Message failed to send—retry.”
+
+“Attachment upload failed—try again.”
+
+8.2. Empty States
+No Channels Created Yet
+
+Channel Pane shows:
+
+pgsql
+Copy
+Edit
+“No channels yet. Click + New Channel to get started.”
+Disable message pane composer until a channel is selected.
+
+Empty Channel (No Messages)
+
+Message Pane shows:
+
+pgsql
+Copy
+Edit
+“No messages in #channel-name. Start the conversation below.”
+Composer remains active.
+
+Empty Thread (No Replies)
+
+Thread container shows:
+
+pgsql
+Copy
+Edit
+“No replies yet. Be the first to reply.”
+Thread composer remains active.
+
+9. Summary of User Flows
+New User
+
+Sign Up → Create workspace & user rows → Redirect to Channel List.
+
+“+ New Channel” (if none exist) → Create channel → Auto-select → Message Pane.
+
+Post a message (with or without attachment).
+
+Receive real-time updates from others.
+
+Open threads, reply, collapse threads.
+
+Sign Out.
+
+Returning User
+
+Sign In → Fetch user profile → Determine workspace → Redirect to Channel List.
+
+Select an existing channel → fetch messages + subscribe to Realtime.
+
+Read or post messages.
+
+Upload attachments.
+
+See unread badges for inactive channels; click to clear.
+
+Sign Out.
+
+10. Third-Party Documentation Links
+Provide these to avoid any confusion about versions, APIs, or usage:
+
+React
+
+Docs & Getting Started: https://reactjs.org/docs/getting-started.html
+
+Supabase
+
+JavaScript Client Library: https://supabase.com/docs/reference/javascript/overview
+
+Realtime Subscriptions: https://supabase.com/docs/guides/realtime
+
+Storage API (upload & signed URLs): https://supabase.com/docs/reference/javascript/storage-from
+
+Row-Level Security (RLS) Intro: https://supabase.com/docs/guides/auth/row-level-security
+
+Tailwind CSS (if using; otherwise ignore)
+
+Docs & Installation: https://tailwindcss.com/docs/installation
+
+Customizing (colors, spacing, fonts): https://tailwindcss.com/docs/configuration
+
+Heroicons (React)
+
+Icon Library & Examples: https://heroicons.com/
+
+React Package: https://github.com/tailwindlabs/heroicons
+
+React-Feather (Feather Icons)
+
+GitHub & Usage: https://github.com/feathericons/react-feather
+
+Google Fonts (Lato)
+
+Lato Family: https://fonts.google.com/specimen/Lato
+
+WebAIM Contrast Checker (for accessibility)
+
+https://webaim.org/resources/contrastchecker/
+
+By following these user flows exactly—referencing component names, CSS variables, API calls, and error-handling rules—your coding agent can implement each interaction without confusion or ambiguity.
+
+
+
+
+
+
+
+
+
+
+Tools
+
+
+

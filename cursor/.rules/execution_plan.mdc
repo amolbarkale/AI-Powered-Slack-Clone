@@ -1,0 +1,586 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Execution Plan: Building V1 Slack-Clone (MoSCoW + Phased)
+
+Below is a phased, atomic-task breakdown using the MoSCoW prioritization framework (Must-have, Should-have, Could-have, Won’t-have). Each phase contains the smallest actionable tasks. If the coding agent completes through the final phase, end-to-end V1 of the application will be functioning.
+
+---
+
+## MoSCoW Legend
+
+- **MUST**: Essential for V1; without these, the app cannot function.  
+- **SHOULD**: Important, but can be deferred if timeline demands.  
+- **COULD**: Nice to have; enhances usability but not critical.  
+- **WON’T**: Out of scope for V1.
+
+---
+
+# Phase 1: Backend Foundation
+
+> **Goal**: Stand up a Supabase backend with schema, RLS, and basic connectivity.
+
+### 1.1. Initialize Supabase Project
+- **MUST**  
+  1. Create new Supabase project in dashboard.  
+  2. Record `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SERVICE_ROLE_KEY`.  
+  3. Enable extensions:  
+     - `pgcrypto` (for UUID)  
+     - (Leave `pgvector` disabled for V1)
+  4. Configure CORS: allow `http://localhost:3000` and any planned frontend URL.
+
+### 1.2. Define Database Schema & Tables
+- **MUST**  
+  1. In Supabase SQL Editor, create table `workspaces` (columns: `id`, `name`, `created_by`, `created_at`).  
+  2. Enable RLS on `workspaces` and add policies (`insert_workspace`, `select_workspace`).  
+  3. Create table `users` (columns: `id`, `auth_id`, `full_name`, `email`, `workspace_id`, `avatar_url`, `created_at`).  
+  4. Enable RLS on `users` and add policies (`select_self_user`, `insert_user`, `update_self_user`).  
+  5. Create table `channels` (columns: `id`, `workspace_id`, `name`, `description`, `created_by`, `created_at`, unique constraint on `(workspace_id, name)`).  
+  6. Enable RLS on `channels` with policies (`select_channels`, `insert_channels`, `update_channels`, `delete_channels`).  
+  7. Create table `messages` (columns: `id`, `workspace_id`, `channel_id`, `parent_message_id`, `user_id`, `content`, `created_at`).  
+     - Add indexes on `(channel_id, created_at)` and `(parent_message_id, created_at)`.  
+  8. Enable RLS on `messages` with policies (`select_messages`, `insert_messages`, `modify_own_messages`).  
+  9. Create table `attachments` (columns: `id`, `workspace_id`, `channel_id`, `message_id`, `storage_path`, `filename`, `uploaded_by`, `uploaded_at`).  
+     - Add CHECK constraint for `filename ILIKE '%.pdf' OR filename ILIKE '%.txt'`.  
+     - Index on `message_id`.  
+  10. Enable RLS on `attachments` with policies (`select_attachments`, `insert_attachments`, `delete_attachments`).  
+  11. Create table `user_channel_reads` (columns: `id`, `workspace_id`, `user_id`, `channel_id`, `last_read_at`, unique `(user_id, channel_id)`).  
+  12. Enable RLS on `user_channel_reads` with policies (`select_reads`, `upsert_reads`, `delete_reads`).
+
+### 1.3. Create Custom RPC for Unread Count
+- **MUST**  
+  1. In Supabase SQL Editor, define function `get_unread_count(p_user_id UUID, p_channel_id UUID)`.  
+  2. Verify that `SECURITY DEFINER` is set, and function returns `unread_count`.  
+  3. Test with sample data to confirm correct counts.
+
+### 1.4. Configure Supabase Storage Bucket
+- **MUST**  
+  1. Create private bucket named `attachments-bucket`.  
+  2. Confirm bucket ACL is private.  
+  3. Set public URL expiration defaults (e.g., 60 seconds).
+
+---
+
+# Phase 2: Backend Connectivity & APIs
+
+> **Goal**: Expose all necessary CRUD operations through Supabase JS client and validate RLS.
+
+### 2.1. Integrate Supabase JS Client
+- **MUST**  
+  1. Create a new Node.js project (or in React repo).  
+  2. Install `@supabase/supabase-js`.  
+  3. Initialize client with `SUPABASE_URL` and `SUPABASE_ANON_KEY`.  
+  4. Write utility file `supabaseClient.js` exporting a configured client.
+
+### 2.2. Auth Trigger or Edge Function for Sign-Up
+- **MUST**  
+  1. Decide between DB trigger vs. Edge Function to create `workspace` + `user` on `auth.users` insert.  
+     - **If uncertain**: present pros/cons (Trigger: simpler, but harder to log; Edge Function: explicit code, easier to debug).  
+     - Ask before implementing.  
+  2. Implement chosen approach:  
+     - DB trigger example: PL/pgSQL that inserts into `workspaces`, then `users`.  
+     - Or Edge Function: watch Supabase Auth webhook → insert rows.
+
+### 2.3. Validate RLS Policies
+- **MUST**  
+  1. Write a quick script to sign up multiple test users in different workspaces.  
+  2. For each user, attempt to select/insert/update in `workspaces`, `users`, `channels`, `messages`, `attachments`, `user_channel_reads`.  
+  3. Confirm that cross-workspace access is denied.
+
+### 2.4. Basic CRUD Helper Functions
+- **MUST**  
+  1. Implement and export helper functions for:  
+     - `createChannel({ workspaceId, name, description, createdBy })`  
+     - `listChannels(workspaceId)`  
+     - `createMessage({ workspaceId, channelId, userId, content, parentMessageId })`  
+     - `listMessages({ workspaceId, channelId, limit, before })`  
+     - `listThreadReplies({ workspaceId, parentMessageId })`  
+     - `createThreadReply({ workspaceId, channelId, userId, content, parentMessageId })`  
+     - `uploadAttachment({ workspaceId, channelId, messageId, file })` (handles storage + metadata insert)  
+     - `getSignedUrl(storagePath, expiresIn)`  
+     - `markChannelRead({ workspaceId, userId, channelId, lastReadAt })`  
+     - `getUnreadCount({ userId, channelId })` (calls RPC)  
+  2. Each helper should return the row or error in a consistent shape.  
+  3. Write unit tests (if time allows) to call each helper and verify expected behavior.
+
+### 2.5. Skip or Deflate Future AI Endpoints
+- **WON’T** (for V1)  
+  - Do not create any AI-related endpoints (e.g., `/api/orgbrain`). Document “Phase 2: AI integration” separately.
+
+---
+
+# Phase 3: Frontend Scaffold & Core UI
+
+> **Goal**: Set up React project, apply global design rules, and build static versions of Sidebar, Channel Pane, Message Pane, and Composer.
+
+### 3.1. Initialize React Project
+- **MUST**  
+  1. Run `npx create-react-app slack-clone` (or Vite, if discussed/traded off).  
+     - **If uncertain** about CRA vs. Vite, discuss pros/cons (CRA: official React templates; Vite: faster dev server).  
+     - Get confirmation before proceeding.  
+  2. Install dependencies:  
+     ```
+     npm install @supabase/supabase-js
+     npm install @heroicons/react react-feather
+     npm install tailwindcss postcss autoprefixer
+     ```
+  3. Initialize Tailwind CSS:  
+     ```
+     npx tailwindcss init -p
+     ```
+     - Configure `tailwind.config.js` with color, font, spacing tokens from design guide.  
+     - Add `@tailwind base; @tailwind components; @tailwind utilities;` to `src/index.css`.
+
+### 3.2. Set Up Global Theme & CSS Variables
+- **MUST**  
+  1. In `src/index.css`, paste the CSS variables from design doc.  
+  2. Ensure Tailwind config uses those variables or maps them as custom colors (e.g., `slack-purple: "var(--slack-purple)"`).
+
+### 3.3. Implement Basic Layout Components
+- **MUST**  
+  1. **`<Sidebar />`**  
+     - Static HTML: workspace name at top, placeholder channel items, “+ New Channel” button, user avatar at bottom.  
+     - Use Tailwind classes per design (background `--sidebar-bg`, widths, padding).  
+     - Leave click handlers empty for now.  
+  2. **`<ChannelPane />`**  
+     - Static list of placeholder channel names (e.g., “#general,” “#random”).  
+     - Section title “Channels” (font 14 px, weight 500, color `--text-secondary`).  
+     - List items styled per design.  
+     - Leave “selected” state on first channel as default.  
+  3. **`<MessagePane />`**  
+     - Header: placeholder “#general,” icons (search, settings) with `--text-secondary` color.  
+     - Scrollable area: hard-coded a few sample messages (avatar, name, content, timestamp).  
+     - Composer: textarea + send button + attach icon, styled exactly.  
+  4. **`<ThreadContainer />`**  
+     - Static example under a sample message: show how replies render (background, left border).  
+     - Include small avatars and text per design.  
+  5. **Compose above into a top-level `AppLayout`** that renders `<Sidebar />`, `<ChannelPane />`, `<MessagePane />` side by side (flex).  
+  6. **Test in browser** at `http://localhost:3000` to ensure layout matches expected design (padding, colors, fonts).
+
+### 3.4. Global State & Context
+- **MUST**  
+  1. Create `AuthContext` (React Context) that holds `currentUser` and `workspaceId`.  
+  2. Create `WorkspaceContext` (if needed in future multi-workspace support).  
+  3. Create `ChannelContext` to hold `selectedChannelId` and provide means to change it.  
+  4. Wrap `App` in these contexts in `src/index.js`.  
+  5. Provide hooks `useAuth()`, `useWorkspace()`, `useChannel()` for children components.
+
+---
+
+# Phase 4: Frontend – Connect to Backend & CRUD
+
+> **Goal**: Replace placeholders with dynamic data by calling Supabase helpers. Implement auth, channel list, message list, create channel, send message, threads, attachments, and unread counts.
+
+### 4.1. Authentication Flow (Sign Up / Sign In)
+
+#### 4.1.1. Sign Up Page
+- **MUST**  
+  1. Create component `SignUp.jsx` with inputs: Full Name, Email, Password, Workspace Name, “Submit” button.  
+  2. On “Submit”:  
+     - Call `supabase.auth.signUp({ email, password })`.  
+     - On success, rely on the trigger/Edge Function to create `workspace` + `user`.  
+     - Then fetch `users` row:  
+       ```js
+       const { data: userProfile } = await supabase
+         .from("users")
+         .select("*")
+         .eq("auth_id", supabase.auth.user().id)
+         .single();
+       ```
+     - Set `currentUser` and `workspaceId` in `AuthContext`.  
+     - Redirect to `"/channels"` (Channel List route).
+
+#### 4.1.2. Sign In Page
+- **MUST**  
+  1. Create component `SignIn.jsx` with inputs: Email, Password, “Sign In” button.  
+  2. On “Sign In”:  
+     - Call `supabase.auth.signIn({ email, password })`.  
+     - On success, fetch `users` row (as above) to get `full_name`, `workspace_id`.  
+     - Set `currentUser` and `workspaceId` in `AuthContext`.  
+     - Redirect to `"/channels"`.
+
+#### 4.1.3. Route Guards
+- **MUST**  
+  1. In `App.js` (or router file), wrap protected routes under a `<PrivateRoute>` component that checks `AuthContext.currentUser`.  
+  2. If not signed in, redirect to `/signin`.  
+  3. After sign-in, redirect to `/channels`.
+
+### 4.2. Dynamic Channel List
+
+- **MUST**  
+  1. Create `ChannelList.jsx` inside `<ChannelPane />`.  
+  2. On mount (useEffect), call:
+     ```js
+     const { data: channels } = await supabase
+       .from("channels")
+       .select("id, name, description")
+       .eq("workspace_id", workspaceId)
+       .order("name", { ascending: true });
+     ```
+  3. Store channels in local state.  
+  4. Render each channel item with `channel.name`.  
+  5. For each channel, fetch unread count via RPC:
+     ```js
+     const { data } = await supabase.rpc("get_unread_count", {
+       p_user_id: currentUser.id,
+       p_channel_id: channel.id
+     });
+     ```
+     - If `unread_count > 0`, render badge (count or dot) next to name.  
+  6. On click of a channel item:  
+     - Set `selectedChannelId` in `ChannelContext`.  
+     - Call “Mark Channel Read”:
+       ```js
+       await supabase.from("user_channel_reads").upsert({
+         workspace_id,
+         user_id: currentUser.id,
+         channel_id: selectedChannelId,
+         last_read_at: new Date().toISOString()
+       }, { onConflict: ["user_id", "channel_id"] });
+       ```
+     - Redirect or update route to `/channels/{channelId}`.  
+  7. Subscribe to changes on `channels` (via realtime) and update list when new channel is created.
+
+- **SHOULD**  
+  1. Highlight selected channel with `--divider` background and `--primary-blue` text.  
+  2. Implement “hover” background (`--surface-hover`).
+
+- **COULD**  
+  1. Add “Create Channel” button in `<ChannelPane />` that opens the modal.  
+
+### 4.3. Create Channel Modal
+
+- **MUST**  
+  1. Clicking “+ New Channel” (from Sidebar) opens `CreateChannelModal.jsx`.  
+  2. Inside modal: inputs for `name` and `description`, “Create” and “Cancel” buttons.  
+  3. On “Create” click:  
+     - Validate `name` non-empty.  
+     - Call:
+       ```js
+       const { data, error } = await supabase.from("channels").insert([{
+         workspace_id: workspaceId,
+         name: channelName,
+         description,
+         created_by: currentUser.id
+       }]).single();
+       ```
+     - On success: close modal, refresh channel list (either manual re-fetch or rely on realtime).  
+     - Automatically call the click handler to select the new channel (see 4.2.6).  
+  4. On “Cancel”: close modal.
+
+- **SHOULD**  
+  1. Disable “Create” button if `channelName.trim().length === 0` or channel count ≥ 10.  
+  2. Show error toast if `error` from Supabase (name collision, max channels exceeded).
+
+---
+
+### 4.4. Message List & Realtime Subscription
+
+- **MUST**  
+  1. Create `MessageList.jsx` inside `<MessagePane />`.  
+  2. On mount (or when `selectedChannelId` changes), call:
+     ```js
+     const { data: messages } = await supabase
+       .from("messages")
+       .select("id, user_id, content, parent_message_id, created_at")
+       .eq("workspace_id", workspaceId)
+       .eq("channel_id", selectedChannelId)
+       .order("created_at", { ascending: true })
+       .limit(50);
+     ```
+  3. Fetch user profiles for each unique `user_id` returned (or join via Supabase select).  
+  4. Save to local state and render each message using `MessageItem.jsx`.  
+  5. **Realtime**: subscribe to:
+     ```js
+     supabase
+       .from(`messages:channel_id=eq.${selectedChannelId}`)
+       .on("INSERT", payload => {
+         setMessages(prev => [...prev, payload.new]);
+       })
+       .subscribe();
+     ```
+  6. On component unmount, unsubscribe to avoid memory leaks.  
+  7. For any new `INSERT` where `payload.new.channel_id === selectedChannelId`, scroll to bottom of list.
+
+- **SHOULD**  
+  1. If `messages.length === 0`, display “No messages in #channel-name. Start the conversation below.”  
+  2. Group consecutive messages by same `user_id` within 5 minutes: omit repeated avatar and sender name.
+
+- **COULD**  
+  1. Implement “infinite scroll”:
+     - If user scrolls to top, fetch previous 50 messages (`before = oldestMessage.created_at`).
+
+---
+
+### 4.5. Posting a New Message & Attachments
+
+- **MUST**  
+  1. Create `Composer.jsx` under `<MessagePane />`.  
+  2. Controlled `<textarea>` for `messageText`, and state for `attachedFile`.  
+  3. On file select (`<input type="file" accept=".pdf,.txt" />`):  
+     - Validate file type and size ≤ 10 MB.  
+     - Store in state.  
+  4. On “Send” click:  
+     - If `attachedFile` exists:  
+       1. Upload to Supabase Storage:
+          ```js
+          const fileExt = attachedFile.name.split(".").pop();
+          const fileName = `${uuidv4()}.${fileExt}`;
+          const filePath = `workspaces/${workspaceId}/channel_${selectedChannelId}/${fileName}`;
+
+          const { data: uploadData, error: uploadErr } = await supabaseClient
+            .storage
+            .from("attachments-bucket")
+            .upload(filePath, attachedFile, { cacheControl: "3600", upsert: false });
+          if (uploadErr) throw uploadErr;
+          ```
+       2. Insert message row (without attachment):
+          ```js
+          const { data: newMessage } = await supabase.from("messages").insert([{
+            workspace_id: workspaceId,
+            channel_id: selectedChannelId,
+            user_id: currentUser.id,
+            content: messageText,
+            parent_message_id: null
+          }]).single();
+          ```
+       3. Insert attachment metadata (use `newMessage.id`):
+          ```js
+          await supabase.from("attachments").insert([{
+            workspace_id: workspaceId,
+            channel_id: selectedChannelId,
+            message_id: newMessage.id,
+            storage_path: uploadData.Key,
+            filename: attachedFile.name,
+            uploaded_by: currentUser.id
+          }]).single();
+          ```
+       4. Clear `messageText` and `attachedFile` state.  
+     - Else (no attachment):  
+       1. Insert to `messages` as above (step 2).  
+       2. Clear `messageText` state.  
+  5. After insert, Supabase Realtime auto-appends to all clients.  
+  6. Composer’s “Send” button disabled if `messageText.trim() === ""` and no `attachedFile`.
+
+- **SHOULD**  
+  1. Show a loading spinner next to “Send” while file upload and message insert is in progress.  
+  2. If file is PDF, display a small PDF icon + filename next to textarea once attached.  
+  3. On upload error, show toast “Attachment upload failed—try again.”
+
+- **COULD**  
+  1. Allow pressing “Cmd+Enter” or “Ctrl+Enter” to send.  
+  2. Preview text-only attachments inline (e.g., show first few lines of `.txt`).
+
+---
+
+### 4.6. Displaying Attachments in Message
+
+- **MUST**  
+  1. Modify `MessageItem.jsx` to check:  
+     ```js
+     const { data: attachments } = await supabase
+       .from("attachments")
+       .select("id, storage_path, filename")
+       .eq("message_id", message.id);
+     ```
+  2. If attachments exist, for each:  
+     - Call `createSignedUrl(storage_path, 60)` to get `signedURL`.  
+     - Render a link “View filename.pdf” or “Download filename.txt” under the message text.  
+  3. Style link with `--primary-blue` color and underline on hover.
+
+- **SHOULD**  
+  1. Use an icon (PDF icon or TXT icon) before filename.  
+  2. If multiple attachments, list them vertically with 8 px gap.
+
+---
+
+### 4.7. Threaded Replies (Dynamic)
+
+- **MUST**  
+  1. In `MessageItem.jsx`, add a “Reply” button/icon that calls a prop `onReplyClick(message.id)`.  
+  2. In `MessagePane.jsx`, track state `expandedThreadId`.  
+  3. When `onReplyClick(id)` invoked:  
+     - If `expandedThreadId === id`, set `expandedThreadId = null` (collapse).  
+     - Else, set `expandedThreadId = id` and fetch replies:
+       ```js
+       const { data: threadReplies } = await supabase
+         .from("messages")
+         .select("id, user_id, content, created_at")
+         .eq("workspace_id", workspaceId)
+         .eq("parent_message_id", id)
+         .order("created_at", { ascending: true });
+       ```
+     - Store `threadReplies` in state keyed by `id`.  
+  4. Below that message, conditionally render `<ThreadContainer replies={threadReplies} parentId={id} />`.  
+     - Inside `ThreadContainer`, show each reply (avatar 24 px, font 13 px).  
+     - Also render a mini-`<Composer>` for replies:  
+       - On “Send Reply”, call:
+         ```js
+         await supabase.from("messages").insert([{
+           workspace_id: workspaceId,
+           channel_id: selectedChannelId,
+           user_id: currentUser.id,
+           content: replyText,
+           parent_message_id: parentId
+         }]).single();
+         ```
+       - After success, append to `threadReplies` state array and clear input.  
+
+- **SHOULD**  
+  1. If `threadReplies.length === 0`, show “No replies yet. Be the first to reply.”  
+  2. Collapse thread when user clicks a “Close Thread” icon.
+
+---
+
+## 10. Phase 5: Unread Count Integration & Read Tracking
+
+> **Goal**: Wire up real-time unread badges and mark-as-read logic.
+
+### 5.1. Mark Channel as Read on Selection
+- **MUST** (covered in 4.2.6)  
+  1. As soon as a channel is clicked, call:
+     ```js
+     await supabase.from("user_channel_reads").upsert({
+       workspace_id: workspaceId,
+       user_id: currentUser.id,
+       channel_id: selectedChannelId,
+       last_read_at: new Date().toISOString()
+     }, { onConflict: ["user_id", "channel_id"] });
+     ```
+  2. This resets unread_count for that channel to zero.
+
+### 5.2. Displaying Unread Badges in Sidebar
+- **MUST**  
+  1. In `ChannelList.jsx`, for each channel, call:
+     ```js
+     const { data: { unread_count } } = await supabase.rpc("get_unread_count", {
+       p_user_id: currentUser.id,
+       p_channel_id: channel.id
+     });
+     ```
+  2. If `unread_count > 0`, render a small red badge (`--accent-red`) with the number (or a dot if count > 9).  
+  3. Subscribe to `messages:workspace_id=eq.${workspaceId}` Realtime:
+     - On each new insert, if `payload.new.channel_id !== selectedChannelId`, re-run `get_unread_count` for that channel to increment the badge.  
+
+- **SHOULD**  
+  1. Debounce badge updates to avoid hammering RPC if many messages arrive quickly.  
+  2. If `unread_count === 0`, hide badge.
+
+---
+
+## Phase 6: Basic Profile & Sign-Out
+
+> **Goal**: Let user view their name/avatar and sign out.
+
+### 6.1. Profile Menu in Sidebar
+- **MUST**  
+  1. In `<Sidebar />`, render user avatar and name at the bottom.  
+  2. Wrap in a clickable `<UserProfileMenu />` component.  
+  3. On click, show a small dropdown:  
+     - “Profile & Settings” (disabled or placeholder for V1).  
+     - “Sign Out”.  
+  4. On “Sign Out” click:  
+     ```js
+     await supabase.auth.signOut();
+     clear AuthContext (currentUser = null, workspaceId = null);
+     navigate to "/signin";
+     ```
+
+---
+
+## Phase 7: Testing, QA & Final Touches
+
+> **Goal**: Validate flows, fix edge cases, polish UI per design language.
+
+### 7.1. Manual End-to-End Testing
+- **MUST**  
+  1. **Onboarding**: Sign Up → auto-create workspace → Channel List.  
+  2. **Channel CRUD**:  
+     - Create channel until limit 10 → ensure “+ New Channel” button disables on 10.  
+  3. **Messaging**:  
+     - Post multiple messages (with and without attachment).  
+     - Verify real-time updates on two browser windows logged in as two users.  
+  4. **Threading**:  
+     - Open thread container, post a reply → confirm it appears.  
+  5. **Unread Badges**:  
+     - Send messages in inactive channel → verify badge increments.  
+     - Click channel → badge disappears.  
+  6. **Attach File**:  
+     - Upload PDF ≤ 10 MB → confirm message displays “View PDF” link.  
+     - Attempt > 10 MB or wrong file type → show inline error.  
+
+### 7.2. Accessibility & Contrast Checks
+- **MUST**  
+  1. Use WebAIM Contrast Checker for:  
+     - `--text-primary` (#1D1C1D) on `--bg-white` (#FFFFFF) → OK.  
+     - `--text-secondary` (#616061) on `--bg-white` → OK.  
+     - Focus outlines (ensure visible).  
+  2. Tab through UI: all interactive elements must receive focus and show visible outline (use `outline: 2px var(--primary-blue)`).
+
+### 7.3. Code Cleanup & Documentation
+- **MUST**  
+  1. Ensure code is linted (run ESLint/Prettier if configured).  
+  2. Confirm all components follow naming conventions.  
+  3. Remove any commented-out or unused code.  
+  4. Update README with:  
+     - Project setup steps (install, run local, environment variables).  
+     - Brief description of folder structure.  
+     - Links to third-party documentation.  
+  5. Add inline comments for any non-obvious logic (e.g., RLS edge cases).
+  6. Ensure that after every actionable you look into `todo.md` and mark done if some task is done.
+
+---
+
+## MoSCoW Summary
+
+| Task Category                       | Priority    |
+|-------------------------------------|-------------|
+| Supabase Project Setup              | **MUST**    |
+| Database Schema + RLS Policies      | **MUST**    |
+| RPC Function (Unread Count)         | **MUST**    |
+| Supabase Storage Bucket             | **MUST**    |
+| Supabase JS Client Integration      | **MUST**    |
+| Auth Trigger / Edge Function        | **MUST**    |
+| CRUD Helper Functions               | **MUST**    |
+| React Project Initialization        | **MUST**    |
+| Global CSS Variables & Tailwind      | **MUST**    |
+| Static Layout Components            | **MUST**    |
+| React Context for Auth/Workspace    | **MUST**    |
+| Dynamic Channel List + Realtime     | **MUST**    |
+| Create Channel Modal                | **MUST**    |
+| Message List + Realtime Subscription | **MUST**    |
+| Composer (Send Message & Attach)    | **MUST**    |
+| Display Attachments in Messages     | **MUST**    |
+| Threaded Replies (Inline)           | **MUST**    |
+| Unread Count Integration            | **MUST**    |
+| Profile Menu & Sign-Out             | **MUST**    |
+| Manual QA & Accessibility Checks    | **MUST**    |
+| Code Cleanup & README Updates       | **MUST**    |
+
+| Optional Enhancements                | Priority    |
+|--------------------------------------|-------------|
+| Infinite Scroll in Message List      | **COULD**   |
+| “Cmd+Enter” Send Shortcut            | **COULD**   |
+| Reply Collapse Toggle Animation      | **SHOULD**  |
+| Show File Icon Thumbnail Previews    | **SHOULD**  |
+| Additional Error Toast Variants      | **COULD**   |
+
+| Out-of-Scope for V1                  | Priority    |
+|--------------------------------------|-------------|
+| AI Features (Org Brain, Tone Meter)  | **WON’T**   |
+| Private Channels / DMs               | **WON’T**   |
+| Profile Settings Editing             | **WON’T**   |
+| Dark Mode                            | **WON’T**   |
+
+---
+
+### Get Started
+
+1. **Choose the Right Model/Approach** for each decision point (e.g., CRA vs. Vite, DB trigger vs. Edge Function).  
+2. **Validate with the Project Owner** before proceeding whenever a “SHOULD” or ambiguous scenario arises.  
+3. Proceed through Phase 1 → Phase 2 → ... → Phase 7, ticking off each atomic task.  
+
+Once all “MUST” items are complete, you will have a fully functioning V1 Slack-clone.
+
