@@ -71,24 +71,25 @@ Now, as you know the application ask me if there is something missing then we ne
 
 5. add all above discussed .mdc files to target directory => /cursor/.rules/*.mdc files
 
-6. execution plan
+6. 
+execution plan
 
-    - using MoSCoW framework make a plan for smallest of the tasks that the agent has to update
-    - define into multiple phase where each phase has smallest of tasks mentioend
-    - Choose right model for the task and then get started
+    using MoSCoW framework make a plan for smallest of the tasks that the agent has to update
+
+    define into multiple phase where each phase has smallest of tasks mentioend
+
+    Choose right model for the task and then get started
 
 example, 
 
 Phase 1:
+
 1. Set up backend
+
 2.  install third party library
+
 3. Run the backend server
 
 Basically phase broadly divided a task and withing every phase individual tasks to be present which are atomic in nature and such that if the coding agent complete task till last phase then it should be able to build v1 of our application end to end
 
-7. After all 9 steps start brainstorming with GPT-4++ model like,
-    After all the expectations of the task needs to be done by you and has been provided in the curorrules files. Go through it and let me knowwhat is your understanding of the web application
 
-8. After checking if everything is absorbed correctly, Next prompt is => Using HTML + CSS + Mermaid make a easily visualisable flowchart of the prd.
-
-9. Make a new file todo.md with detailed implementation plan such that it is like a todo list where you strike off when certain task it done and open when it is pending. Use @execution_plan.mdc as a motivation to make your todo list - in the same manner phase and individual task.
