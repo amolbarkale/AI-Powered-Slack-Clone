@@ -1,1 +1,2 @@
-# AI-Powered-Slack-Clone
+# AI Powered Slack Clone
+
