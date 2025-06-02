@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE(auth_id)
 );
 
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_users_auth_id ON users(auth_id);
+CREATE INDEX IF NOT EXISTS idx_users_workspace_id ON users(workspace_id);
+
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
@@ -38,8 +42,4 @@ CREATE POLICY "insert_user" ON users
 CREATE POLICY "update_self_user" ON users
   FOR UPDATE USING (
     auth_id = auth.uid()
-  );
-
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_users_auth_id ON users(auth_id);
-CREATE INDEX IF NOT EXISTS idx_users_workspace_id ON users(workspace_id); 
+  ); 

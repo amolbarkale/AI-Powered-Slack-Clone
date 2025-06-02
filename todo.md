@@ -45,41 +45,41 @@
 ## Phase 2: Backend Connectivity & APIs
 
 ### 2.1. Integrate Supabase JS Client
-- [ ] Create Node.js project (or in React repo)
-- [ ] Install `@supabase/supabase-js`
-- [ ] Initialize client with keys
-- [ ] Write utility file `supabaseClient.js`
+- [x] ~~Create Node.js project (or in React repo)~~
+- [x] ~~Install `@supabase/supabase-js`~~
+- [x] ~~Initialize client with keys~~
+- [x] ~~Write utility file `supabaseClient.js`~~
 
 ### 2.2. Auth Trigger or Edge Function for Sign-Up
 - [x] ~~Decide between DB trigger vs. Edge Function (present pros/cons)~~
 - [x] ~~Implement chosen approach~~
 
 ### 2.3. Validate RLS Policies
-- [ ] Write script to sign up test users in different workspaces
-- [ ] Attempt select/insert/update in all tables for each user
-- [ ] Confirm cross-workspace access is denied
+- [x] ~~Write script to sign up test users in different workspaces~~
+- [x] ~~Attempt select/insert/update in all tables for each user~~
+- [x] ~~Confirm cross-workspace access is denied~~
 
 ### 2.4. Basic CRUD Helper Functions
-- [ ] Implement and export all helper functions
-- [ ] Each helper returns row or error in consistent shape
-- [ ] Write unit tests for helpers (if time allows)
+- [x] ~~Implement and export all helper functions~~
+- [x] ~~Each helper returns row or error in consistent shape~~
+- [x] ~~Write unit tests for helpers (if time allows)~~
 
 ### 2.5. Skip or Deflate Future AI Endpoints
-- [ ] Do not create any AI-related endpoints (document for Phase 2: AI integration)
+- [x] ~~Do not create any AI-related endpoints (document for Phase 2: AI integration)~~
 
 ---
 
 ## Phase 3: Frontend Scaffold & Core UI
 
 ### 3.1. Initialize React Project
-- [ ] Run `npx create-react-app slack-clone` (or Vite, if discussed)
-- [ ] Install dependencies
-- [ ] Initialize Tailwind CSS
-- [ ] Configure Tailwind and add to `src/index.css`
+- [x] ~~Run `npx create-react-app slack-clone` (or Vite, if discussed)~~
+- [x] ~~Install dependencies~~
+- [x] ~~Initialize Tailwind CSS~~
+- [x] ~~Configure Tailwind and add to `src/index.css`~~
 
 ### 3.2. Set Up Global Theme & CSS Variables
-- [ ] Paste CSS variables from design doc into `src/index.css`
-- [ ] Ensure Tailwind config uses those variables
+- [x] ~~Paste CSS variables from design doc into `src/index.css`~~
+- [x] ~~Ensure Tailwind config uses those variables~~
 
 ### 3.3. Implement Basic Layout Components
 - [ ] `<Sidebar />` static HTML
@@ -90,11 +90,11 @@
 - [ ] Test in browser for layout
 
 ### 3.4. Global State & Context
-- [ ] Create `AuthContext`
-- [ ] Create `WorkspaceContext` (if needed)
-- [ ] Create `ChannelContext`
-- [ ] Wrap `App` in contexts
-- [ ] Provide hooks for children components
+- [x] ~~Create `AuthContext`~~
+- [x] ~~Create `WorkspaceContext` (if needed)~~
+- [x] ~~Create `ChannelContext`~~
+- [x] ~~Wrap `App` in contexts~~
+- [x] ~~Provide hooks for children components~~
 
 ---
 
