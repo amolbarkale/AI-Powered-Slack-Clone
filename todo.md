@@ -82,12 +82,12 @@
 - [x] ~~Ensure Tailwind config uses those variables~~
 
 ### 3.3. Implement Basic Layout Components
-- [ ] `<Sidebar />` static HTML
-- [ ] `<ChannelPane />` static list
-- [ ] `<MessagePane />` header, scrollable area, composer
-- [ ] `<ThreadContainer />` static example
-- [ ] Compose into `AppLayout`
-- [ ] Test in browser for layout
+- [x] ~~`<Sidebar />` static HTML~~
+- [x] ~~`<ChannelPane />` static list~~
+- [x] ~~`<MessagePane />` header, scrollable area, composer~~
+- [x] ~~`<ThreadContainer />` static example~~
+- [x] ~~Compose into `AppLayout`~~
+- [x] ~~Test in browser for layout~~
 
 ### 3.4. Global State & Context
 - [x] ~~Create `AuthContext`~~
@@ -101,31 +101,31 @@
 ## Phase 4: Frontend – Connect to Backend & CRUD
 
 ### 4.1. Authentication Flow (Sign Up / Sign In)
-- [ ] Create `SignUp.jsx` component
-- [ ] Implement sign up logic and context update
-- [ ] Create `SignIn.jsx` component
-- [ ] Implement sign in logic and context update
-- [ ] Implement route guards
+- [x] ~~Create `SignUp.jsx` component~~
+- [x] ~~Implement sign up logic and context update~~
+- [x] ~~Create `SignIn.jsx` component~~
+- [x] ~~Implement sign in logic and context update~~
+- [x] ~~Implement route guards~~
 
 ### 4.2. Channel List & Selection
-- [ ] Fetch and display channels from backend
-- [ ] Implement channel selection logic
+- [x] ~~Fetch and display channels from backend~~
+- [x] ~~Implement channel selection logic~~
 
 ### 4.3. Message List & Posting
-- [ ] Fetch and display messages for selected channel
-- [ ] Implement message posting
+- [x] ~~Fetch and display messages for selected channel~~
+- [x] ~~Implement message posting~~
 
 ### 4.4. Threads & Replies
-- [ ] Fetch and display thread replies
-- [ ] Implement reply posting
+- [x] ~~Fetch and display thread replies~~
+- [x] ~~Implement reply posting~~
 
 ### 4.5. File Uploads & Attachments
-- [ ] Implement file upload (PDF/TXT)
-- [ ] Display attachments in messages
+- [x] ~~Implement file upload (PDF/TXT)~~
+- [x] ~~Display attachments in messages~~
 
 ### 4.6. Unread Counts
-- [ ] Fetch and display unread counts per channel
-- [ ] Mark channel as read
+- [x] ~~Fetch and display unread counts per channel~~
+- [x] ~~Mark channel as read~~
 
 ---
 
@@ -141,4 +141,4 @@
 - [ ] Manual QA & edge case testing
 - [ ] Accessibility checks
 - [ ] Performance & error handling
-- [ ] Documentation & final review 
+- [x] ~~Documentation & final review~~ 
