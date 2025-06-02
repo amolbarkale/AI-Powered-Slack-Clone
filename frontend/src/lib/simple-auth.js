@@ -66,8 +66,6 @@ export async function simpleSignUp(email, password, userData = {}) {
                 description: 'General discussion',
                 created_by: newUser.id
               }]);
-              
-            console.log('User record created immediately:', newUser);
           }
         }
       } catch (err) {
@@ -91,113 +89,224 @@ export async function simpleSignIn(email, password) {
   console.log('Simple sign in with:', email);
   
   try {
-    // 1. Sign in with Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (error) {
-      console.error('Sign in error:', error);
-      return { success: false, error: error.message };
-    }
-    
-    if (!data.user) {
-      return { success: false, error: 'No user returned from authentication' };
-    }
-    
-    // 2. Get user data with retry mechanism
-    let userData = null;
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (!userData && attempts < maxAttempts) {
-      attempts++;
-      console.log(`Attempt ${attempts} to fetch user data`);
+    // 1. Sign in with Supabase Auth - DIRECT APPROACH
+    let authResponse;
+    try {
+      authResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ email, password }),
+      });
       
-      const { data: userRecord, error: userError } = await supabase
+      if (!authResponse.ok) {
+        const errorData = await authResponse.json();
+        console.error('Auth API error:', errorData);
+        return { success: false, error: errorData.error_description || 'Authentication failed' };
+      }
+    } catch (fetchError) {
+      console.error('Fetch error during auth:', fetchError);
+      return { success: false, error: 'Connection error during authentication' };
+    }
+    
+    // 2. Use the standard Supabase client as fallback if direct approach fails
+    if (!authResponse || !authResponse.ok) {
+      console.log('Falling back to Supabase client for auth...');
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        console.error('Sign in error:', error);
+        return { success: false, error: error.message };
+      }
+      
+      if (!data || !data.user) {
+        return { success: false, error: 'No user returned from authentication' };
+      }
+      
+      // Get user data immediately after authentication
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', data.user.id)
         .single();
+      
+      if (userError || !userData) {
+        console.error('Error fetching user data:', userError);
+        // Use auth user data as fallback
+        const tempUserData = {
+          id: 'temp-' + Date.now(),
+          auth_id: data.user.id,
+          full_name: data.user.user_metadata?.full_name || data.user.email.split('@')[0],
+          email: data.user.email
+        };
         
-      if (!userError && userRecord) {
-        userData = userRecord;
-        break;
+        return { 
+          success: true, 
+          user: { ...data.user, ...tempUserData },
+          session: data.session
+        };
       }
       
-      if (attempts < maxAttempts) {
-        console.log('User record not found, creating manually...');
-        
-        // Create user record if it doesn't exist
-        try {
-          // Create workspace
-          const { data: workspace, error: wsError } = await supabase
-            .from('workspaces')
-            .insert([{ name: 'My Workspace' }])
-            .select()
-            .single();
-            
-          if (!wsError && workspace) {
-            // Create user
-            const { data: newUser, error: createError } = await supabase
-              .from('users')
-              .insert([{
-                auth_id: data.user.id,
-                full_name: data.user.user_metadata?.full_name || data.user.email.split('@')[0],
-                email: data.user.email,
-                workspace_id: workspace.id
-              }])
-              .select()
-              .single();
-              
-            if (!createError && newUser) {
-              // Update workspace with user ID
-              await supabase
-                .from('workspaces')
-                .update({ created_by: newUser.id })
-                .eq('id', workspace.id);
-                
-              // Create default channel
-              await supabase
-                .from('channels')
-                .insert([{
-                  workspace_id: workspace.id,
-                  name: 'general',
-                  description: 'General discussion',
-                  created_by: newUser.id
-                }]);
-                
-              userData = newUser;
-              break;
-            }
-          }
-        } catch (err) {
-          console.error('Error creating user record:', err);
-        }
-        
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-    }
-    
-    // 3. If we still don't have user data, return just the auth user
-    if (!userData) {
-      console.warn('Could not get or create user record, using auth user data');
-      userData = {
-        id: 'temp-' + Date.now(),
-        auth_id: data.user.id,
-        full_name: data.user.user_metadata?.full_name || data.user.email.split('@')[0],
-        email: data.user.email
+      return { 
+        success: true, 
+        user: { ...data.user, ...userData },
+        session: data.session
       };
     }
     
-    console.log('Sign in successful with user data:', userData);
+    // 3. Process successful direct authentication
+    const authData = await authResponse.json();
     
+    // Get user from the access token
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authData.access_token);
+    
+    if (userError || !user) {
+      console.error('Error getting user from token:', userError);
+      return { success: false, error: 'Failed to get user data' };
+    }
+    
+    // Set the session in Supabase client
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: authData.access_token,
+      refresh_token: authData.refresh_token
+    });
+    
+    if (sessionError) {
+      console.error('Error setting session:', sessionError);
+    }
+    
+    // Get user data from database
+    const { data: userData, error: dbUserError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('auth_id', user.id)
+      .single();
+    
+    // Create user record if it doesn't exist
+    if (dbUserError || !userData) {
+      console.log('User record not found, creating...');
+      
+      try {
+        // Create workspace
+        const { data: workspace, error: wsError } = await supabase
+          .from('workspaces')
+          .insert([{ name: 'My Workspace' }])
+          .select()
+          .single();
+          
+        if (wsError) {
+          console.error('Error creating workspace:', wsError);
+          // Use auth user data as fallback
+          const tempUserData = {
+            id: 'temp-' + Date.now(),
+            auth_id: user.id,
+            full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+            email: user.email
+          };
+          
+          return { 
+            success: true, 
+            user: { ...user, ...tempUserData },
+            session: {
+              access_token: authData.access_token,
+              refresh_token: authData.refresh_token,
+              expires_at: authData.expires_at
+            }
+          };
+        }
+        
+        // Create user
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert([{
+            auth_id: user.id,
+            full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+            email: user.email,
+            workspace_id: workspace.id
+          }])
+          .select()
+          .single();
+          
+        if (createError || !newUser) {
+          console.error('Error creating user record:', createError);
+          // Use auth user data as fallback
+          const tempUserData = {
+            id: 'temp-' + Date.now(),
+            auth_id: user.id,
+            full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+            email: user.email,
+            workspace_id: workspace.id
+          };
+          
+          return { 
+            success: true, 
+            user: { ...user, ...tempUserData },
+            session: {
+              access_token: authData.access_token,
+              refresh_token: authData.refresh_token,
+              expires_at: authData.expires_at
+            }
+          };
+        }
+        
+        // Update workspace with user ID
+        await supabase
+          .from('workspaces')
+          .update({ created_by: newUser.id })
+          .eq('id', workspace.id);
+          
+        // Create default channel
+        await supabase
+          .from('channels')
+          .insert([{
+            workspace_id: workspace.id,
+            name: 'general',
+            description: 'General discussion',
+            created_by: newUser.id
+          }]);
+          
+        return { 
+          success: true, 
+          user: { ...user, ...newUser },
+          session: {
+            access_token: authData.access_token,
+            refresh_token: authData.refresh_token,
+            expires_at: authData.expires_at
+          }
+        };
+      } catch (createErr) {
+        console.error('Error in user creation:', createErr);
+        // Use auth user data as fallback
+        const tempUserData = {
+          id: 'temp-' + Date.now(),
+          auth_id: user.id,
+          full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+          email: user.email
+        };
+        
+        return { 
+          success: true, 
+          user: { ...user, ...tempUserData },
+          session: {
+            access_token: authData.access_token,
+            refresh_token: authData.refresh_token,
+            expires_at: authData.expires_at
+          }
+        };
+      }
+    }
+    
+    // Return user data
     return { 
       success: true, 
-      user: { ...data.user, ...userData },
-      session: data.session
+      user: { ...user, ...userData },
+      session: {
+        access_token: authData.access_token,
+        refresh_token: authData.refresh_token,
+        expires_at: authData.expires_at
+      }
     };
   } catch (err) {
     console.error('Unexpected error during sign in:', err);
