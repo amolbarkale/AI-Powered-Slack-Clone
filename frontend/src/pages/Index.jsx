@@ -5,7 +5,6 @@ import Header from '../components/chat/Header';
 import Sidebar from '../components/chat/Sidebar';
 import ChatArea from '../components/chat/ChatArea';
 import ThreadPanel from '../components/chat/ThreadPanel';
-import SessionMonitor from '../components/debug/SessionMonitor';
 
 const ChatLayout = () => {
   const { user, loading } = useAuth();
@@ -65,8 +64,6 @@ const ChatLayout = () => {
         <ChatArea />
         <ThreadPanel />
       </div>
-      {/* Temporary debug component - remove in production */}
-      <SessionMonitor />
     </div>
   );
 };

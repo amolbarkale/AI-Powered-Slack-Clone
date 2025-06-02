@@ -1,54 +1,55 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables!');
 }
 
-// Custom storage implementation that's more persistent
+// A “real” localStorage proxy so that browser StorageEvents fire between tabs.
+// We also keep your sessionStorage backup, but we do NOT swallow the real storage events.
 const customStorage = {
   getItem: (key) => {
     try {
-      const item = localStorage.getItem(key);
+      const item = window.localStorage.getItem(key);
       console.log(`Getting storage item ${key}:`, item ? 'found' : 'not found');
       return item;
-    } catch (error) {
-      console.error('Error getting item from storage:', error);
+    } catch (err) {
+      console.error('Error getting item from storage:', err);
       return null;
     }
   },
   setItem: (key, value) => {
     try {
       console.log(`Setting storage item ${key}`);
-      localStorage.setItem(key, value);
-      // Also set a backup in sessionStorage
-      sessionStorage.setItem(key + '_backup', value);
-    } catch (error) {
-      console.error('Error setting item in storage:', error);
+      window.localStorage.setItem(key, value);
+      // backup in sessionStorage, in case you need to recover manually
+      window.sessionStorage.setItem(key + '_backup', value);
+    } catch (err) {
+      console.error('Error setting item in storage:', err);
     }
   },
   removeItem: (key) => {
     try {
       console.log(`Removing storage item ${key}`);
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key + '_backup');
-    } catch (error) {
-      console.error('Error removing item from storage:', error);
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key + '_backup');
+    } catch (err) {
+      console.error('Error removing item from storage:', err);
     }
   }
 };
 
-// Create Supabase client with enhanced options for better session management
+// Create the Supabase client once, with multiTab enabled and your customStorage.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-    storage: customStorage,
-    storageKey: 'supabase.auth.token',
+    persistSession: true,        // write session into localStorage
+    autoRefreshToken: true,      // auto‐refresh the access token when it nears expiry
+    detectSessionInUrl: true,     // only needed if you’re doing OAuth PKCE redirects
+    flowType: 'pkce',             // only needed if you actually use PKCE
+    storage: customStorage,       // let Supabase read/write via localStorage
+    multiTab: true,               // listen to "storage" events from other tabs
   },
   realtime: {
     timeout: 60000,
@@ -64,9 +65,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Session monitoring utilities
+// Session utilities remain the same
 export const sessionUtils = {
-  // Check if session is valid
   async isSessionValid() {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -77,18 +77,16 @@ export const sessionUtils = {
     }
   },
 
-  // Get session info for debugging
   async getSessionInfo() {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       if (error || !session) {
         return { valid: false, error: error?.message || 'No session' };
       }
-      
       return {
         valid: true,
         expiresAt: new Date(session.expires_at * 1000),
-        timeUntilExpiry: (session.expires_at * 1000) - Date.now(),
+        timeUntilExpiry: session.expires_at * 1000 - Date.now(),
         user: session.user?.email
       };
     } catch (error) {
@@ -96,7 +94,6 @@ export const sessionUtils = {
     }
   },
 
-  // Manually refresh session
   async refreshSession() {
     try {
       const { error } = await supabase.auth.refreshSession();
@@ -106,19 +103,19 @@ export const sessionUtils = {
     }
   },
 
-  // Force session recovery from backup storage
   async recoverSession() {
     try {
-      const backupSession = sessionStorage.getItem('supabase.auth.token_backup');
+      const backupSession = window.sessionStorage.getItem('@supabase/auth-v1-expires-at_backup');
       if (backupSession) {
         console.log('Attempting to recover session from backup...');
+        // Note: Supabase v2 sessions are split across multiple keys;
+        // if you need a deep recovery, you’d have to rehydrate all keys
+        // here. In most cases, letting Supabase auto‐refresh from localStorage is enough.
         const sessionData = JSON.parse(backupSession);
-        
         const { error } = await supabase.auth.setSession({
           access_token: sessionData.access_token,
           refresh_token: sessionData.refresh_token
         });
-        
         return { success: !error, error: error?.message };
       }
       return { success: false, error: 'No backup session found' };
