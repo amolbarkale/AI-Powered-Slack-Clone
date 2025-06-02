@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { ChatProvider, useChat } from '../contexts/ChatContext';
+import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import AuthLayout from '../components/auth/AuthLayout';
 import Header from '../components/chat/Header';
 import Sidebar from '../components/chat/Sidebar';
@@ -7,22 +7,22 @@ import ChatArea from '../components/chat/ChatArea';
 import ThreadPanel from '../components/chat/ThreadPanel';
 
 const ChatLayout = () => {
-  const { isDarkMode, isAuthenticated } = useChat();
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return <AuthLayout />;
   }
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-gray-900 transition-colors">
+    <div className="h-screen flex flex-col bg-white transition-colors">
       <Header />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
@@ -34,11 +34,7 @@ const ChatLayout = () => {
 };
 
 const Index = () => {
-  return (
-    <ChatProvider>
-      <ChatLayout />
-    </ChatProvider>
-  );
+  return <ChatLayout />;
 };
 
 export default Index; 

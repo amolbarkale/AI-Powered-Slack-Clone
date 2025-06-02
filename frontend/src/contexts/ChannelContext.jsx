@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useWorkspace } from './WorkspaceContext';
+import { useAuth } from './AuthContext';
+import { getChannels, createChannel as apiCreateChannel, markChannelAsRead, getUnreadCounts, subscribeToChannels } from '../lib/api';
 
 const ChannelContext = createContext();
 
@@ -13,44 +15,17 @@ export const useChannel = () => {
 
 export const ChannelProvider = ({ children }) => {
   const { currentWorkspace } = useWorkspace();
+  const { user } = useAuth();
   const [channels, setChannels] = useState([]);
   const [currentChannel, setCurrentChannel] = useState(null);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Mock channels for demo
-  const mockChannels = [
-    {
-      id: 'channel-1',
-      name: 'general',
-      description: 'Company-wide announcements and work-based matters',
-      workspace_id: currentWorkspace?.id,
-      is_private: false,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 'channel-2',
-      name: 'random',
-      description: 'Non-work banter and water cooler conversation',
-      workspace_id: currentWorkspace?.id,
-      is_private: false,
-      created_at: new Date().toISOString(),
-    },
-    {
-      id: 'channel-3',
-      name: 'development',
-      description: 'Development team discussions',
-      workspace_id: currentWorkspace?.id,
-      is_private: false,
-      created_at: new Date().toISOString(),
-    },
-  ];
-
   // Fetch channels when workspace changes
   useEffect(() => {
     const fetchChannels = async () => {
-      if (!currentWorkspace) {
+      if (!currentWorkspace || !user) {
         setChannels([]);
         setCurrentChannel(null);
         setLoading(false);
@@ -61,16 +36,9 @@ export const ChannelProvider = ({ children }) => {
         setLoading(true);
         setError(null);
         
-        // In a real app, fetch from Supabase
-        // const { data, error } = await supabase
-        //   .from('channels')
-        //   .select('*')
-        //   .eq('workspace_id', currentWorkspace.id);
+        const { data, error: apiError } = await getChannels(currentWorkspace.id);
         
-        // if (error) throw error;
-        
-        // For demo purposes, use mock data
-        const data = mockChannels;
+        if (apiError) throw apiError;
         
         setChannels(data);
         
@@ -87,46 +55,90 @@ export const ChannelProvider = ({ children }) => {
     };
 
     fetchChannels();
-  }, [currentWorkspace, currentChannel]);
+    
+    // Subscribe to channel changes
+    let subscription;
+    if (currentWorkspace) {
+      subscription = subscribeToChannels(currentWorkspace.id, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setChannels(prev => [...prev, payload.new]);
+        } else if (payload.eventType === 'UPDATE') {
+          setChannels(prev => prev.map(channel => 
+            channel.id === payload.new.id ? payload.new : channel
+          ));
+        } else if (payload.eventType === 'DELETE') {
+          setChannels(prev => prev.filter(channel => channel.id !== payload.old.id));
+        }
+      });
+    }
+    
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [currentWorkspace, user]);
 
-  // Mock unread counts for demo
+  // Update current channel when channels change and current channel is no longer in the list
   useEffect(() => {
-    if (!channels.length) return;
+    if (currentChannel && !channels.some(c => c.id === currentChannel.id)) {
+      if (channels.length > 0) {
+        setCurrentChannel(channels[0]);
+      } else {
+        setCurrentChannel(null);
+      }
+    }
+  }, [channels, currentChannel]);
+
+  // Fetch unread counts
+  useEffect(() => {
+    const fetchUnreadCounts = async () => {
+      if (!user || !channels.length) return;
+      
+      try {
+        const { data, error: apiError } = await getUnreadCounts(user.id);
+        
+        if (apiError) throw apiError;
+        
+        // Convert array of unread counts to object
+        const countsObj = {};
+        data.forEach(item => {
+          countsObj[item.channel_id] = item.unread_count;
+        });
+        
+        setUnreadCounts(countsObj);
+      } catch (err) {
+        console.error('Error fetching unread counts:', err);
+      }
+    };
     
-    // Generate random unread counts for demo
-    const mockUnreadCounts = {};
-    channels.forEach(channel => {
-      mockUnreadCounts[channel.id] = Math.floor(Math.random() * 5); // 0-4 unread messages
-    });
+    fetchUnreadCounts();
     
-    setUnreadCounts(mockUnreadCounts);
-  }, [channels]);
+    // Set up interval to refresh unread counts
+    const interval = setInterval(fetchUnreadCounts, 30000); // Every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [channels, user]);
 
   const createChannel = async (channelData) => {
     try {
+      if (!currentWorkspace) {
+        throw new Error('No workspace selected');
+      }
+      
       setError(null);
       
-      // In a real app, insert to Supabase
-      // const { data, error } = await supabase
-      //   .from('channels')
-      //   .insert([{ ...channelData, workspace_id: currentWorkspace.id }])
-      //   .select()
-      //   .single();
+      const { data, error: apiError } = await apiCreateChannel(
+        currentWorkspace.id,
+        channelData.name,
+        channelData.description || '',
+        channelData.is_private || false
+      );
       
-      // if (error) throw error;
+      if (apiError) throw apiError;
       
-      // For demo purposes, create mock data
-      const newChannel = {
-        id: `channel-${channels.length + 1}`,
-        name: channelData.name,
-        description: channelData.description || '',
-        workspace_id: currentWorkspace?.id,
-        is_private: channelData.is_private || false,
-        created_at: new Date().toISOString(),
-      };
-      
-      setChannels([...channels, newChannel]);
-      return { data: newChannel, error: null };
+      setChannels(prev => [...prev, data]);
+      return { data, error: null };
     } catch (err) {
       console.error('Error creating channel:', err);
       setError(err.message);
@@ -134,17 +146,24 @@ export const ChannelProvider = ({ children }) => {
     }
   };
 
-  const switchChannel = (channelId) => {
+  const switchChannel = async (channelId) => {
     const channel = channels.find(c => c.id === channelId);
     if (channel) {
       setCurrentChannel(channel);
       
-      // Clear unread count for this channel
-      if (unreadCounts[channelId]) {
-        setUnreadCounts(prev => ({
-          ...prev,
-          [channelId]: 0
-        }));
+      // Mark channel as read
+      if (user) {
+        try {
+          await markChannelAsRead(channelId);
+          
+          // Clear unread count for this channel
+          setUnreadCounts(prev => ({
+            ...prev,
+            [channelId]: 0
+          }));
+        } catch (err) {
+          console.error('Error marking channel as read:', err);
+        }
       }
     }
   };

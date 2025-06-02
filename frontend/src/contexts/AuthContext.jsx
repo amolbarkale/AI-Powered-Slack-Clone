@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { signIn, signUp, signOut, getCurrentUser } from '../lib/api';
 
 const AuthContext = createContext();
 
@@ -19,8 +20,8 @@ export const AuthProvider = ({ children }) => {
     // Check active sessions and sets the user
     const getSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user || null);
+        const { data } = await getCurrentUser();
+        setUser(data.user || null);
       } catch (error) {
         console.error('Error getting session:', error);
       } finally {
@@ -31,53 +32,40 @@ export const AuthProvider = ({ children }) => {
     getSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
+    const subscription = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const { data } = await getCurrentUser();
+        setUser(data.user || null);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => subscription.data.subscription.unsubscribe();
   }, []);
-
-  // For demo purposes, let's bypass authentication
-  const bypassAuth = true;
   
   // Expose the authentication context
   const value = {
-    user: bypassAuth ? { id: 'demo-user', email: 'demo@example.com' } : user,
-    loading: bypassAuth ? false : loading,
+    user,
+    loading,
     signIn: async (email, password) => {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        return { data: null, error };
+      const result = await signIn(email, password);
+      if (!result.error) {
+        const { data } = await getCurrentUser();
+        setUser(data.user || null);
       }
+      return result;
     },
-    signUp: async (email, password) => {
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (error) throw error;
-        return { data, error: null };
-      } catch (error) {
-        return { data: null, error };
-      }
+    signUp: async (email, password, userData) => {
+      return await signUp(email, password, userData);
     },
     signOut: async () => {
-      try {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-        return { error: null };
-      } catch (error) {
-        return { error };
+      const result = await signOut();
+      if (!result.error) {
+        setUser(null);
       }
+      return result;
     },
   };
 

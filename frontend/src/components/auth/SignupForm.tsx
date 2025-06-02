@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader2, Upload } from 'lucide-react';
-import { useChat } from '../../contexts/ChatContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '../../hooks/use-toast';
@@ -18,7 +17,7 @@ const SignupForm: React.FC = () => {
   const [avatar, setAvatar] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signup, isDarkMode } = useChat();
+  const { signUp } = useAuth();
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,6 +39,7 @@ const SignupForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('formData:', formData)
     if (!formData.name || !formData.email || !formData.password) {
       toast({
         title: 'Error',
@@ -70,12 +70,18 @@ const SignupForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const success = await signup({
-        ...formData,
-        avatar: avatar || undefined
-      });
+      const { error } = await signUp(
+        formData.email, 
+        formData.password,
+        { 
+          fullName: formData.name,
+          avatarUrl: avatar || undefined,
+          bio: formData.bio,
+          phone: formData.phone
+        }
+      );
       
-      if (success) {
+      if (!error) {
         toast({
           title: 'Account created!',
           description: 'Welcome to the team! You can now start collaborating.',
@@ -83,11 +89,12 @@ const SignupForm: React.FC = () => {
       } else {
         toast({
           title: 'Sign up failed',
-          description: 'Failed to create account. Please try again.',
+          description: error.message || 'Failed to create account. Please try again.',
           variant: 'destructive'
         });
       }
     } catch (error) {
+      console.log('error:', error)
       toast({
         title: 'Error',
         description: 'Something went wrong. Please try again.',
@@ -103,11 +110,11 @@ const SignupForm: React.FC = () => {
       {/* Avatar Upload */}
       <div className="flex justify-center">
         <div className="relative">
-          <div className={`w-20 h-20 rounded-full border-2 border-dashed ${isDarkMode ? 'border-gray-600' : 'border-gray-300'} flex items-center justify-center overflow-hidden`}>
+          <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
             {avatar ? (
               <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <Upload className={`w-6 h-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+              <Upload className="w-6 h-6 text-gray-500" />
             )}
           </div>
           <input
@@ -121,7 +128,7 @@ const SignupForm: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-6">
         <div>
-          <label htmlFor="name" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
             Full name *
           </label>
           <Input
@@ -132,12 +139,11 @@ const SignupForm: React.FC = () => {
             value={formData.name}
             onChange={handleInputChange}
             placeholder="Enter your full name"
-            className={isDarkMode ? 'bg-gray-800 border-gray-600' : ''}
           />
         </div>
 
         <div>
-          <label htmlFor="email" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
             Email address *
           </label>
           <Input
@@ -148,12 +154,11 @@ const SignupForm: React.FC = () => {
             value={formData.email}
             onChange={handleInputChange}
             placeholder="Enter your email"
-            className={isDarkMode ? 'bg-gray-800 border-gray-600' : ''}
           />
         </div>
 
         <div>
-          <label htmlFor="password" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
             Password *
           </label>
           <div className="relative">
@@ -165,11 +170,11 @@ const SignupForm: React.FC = () => {
               value={formData.password}
               onChange={handleInputChange}
               placeholder="Enter your password"
-              className={`pr-10 ${isDarkMode ? 'bg-gray-800 border-gray-600' : ''}`}
+              className="pr-10"
             />
             <button
               type="button"
-              className={`absolute inset-y-0 right-0 pr-3 flex items-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
               onClick={() => setShowPassword(!showPassword)}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -178,7 +183,7 @@ const SignupForm: React.FC = () => {
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
             Confirm password *
           </label>
           <Input
@@ -189,12 +194,11 @@ const SignupForm: React.FC = () => {
             value={formData.confirmPassword}
             onChange={handleInputChange}
             placeholder="Confirm your password"
-            className={isDarkMode ? 'bg-gray-800 border-gray-600' : ''}
           />
         </div>
 
         <div>
-          <label htmlFor="bio" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
             Bio (optional)
           </label>
           <Input
@@ -204,12 +208,11 @@ const SignupForm: React.FC = () => {
             value={formData.bio}
             onChange={handleInputChange}
             placeholder="Tell us about yourself"
-            className={isDarkMode ? 'bg-gray-800 border-gray-600' : ''}
           />
         </div>
 
         <div>
-          <label htmlFor="phone" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
             Phone (optional)
           </label>
           <Input
@@ -219,7 +222,6 @@ const SignupForm: React.FC = () => {
             value={formData.phone}
             onChange={handleInputChange}
             placeholder="Enter your phone number"
-            className={isDarkMode ? 'bg-gray-800 border-gray-600' : ''}
           />
         </div>
       </div>

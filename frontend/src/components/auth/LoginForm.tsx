@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useChat } from '../../contexts/ChatContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '../../hooks/use-toast';
@@ -11,7 +10,7 @@ const LoginForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login, isDarkMode } = useChat();
+  const { signIn } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,9 +28,9 @@ const LoginForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const success = await login(email, password);
+      const { data, error } = await signIn(email, password);
       
-      if (success) {
+      if (!error) {
         toast({
           title: 'Welcome back!',
           description: 'You have successfully signed in.',
@@ -39,7 +38,7 @@ const LoginForm: React.FC = () => {
       } else {
         toast({
           title: 'Sign in failed',
-          description: 'Invalid email or password. Please try again.',
+          description: error.message || 'Invalid email or password. Please try again.',
           variant: 'destructive'
         });
       }
@@ -57,7 +56,7 @@ const LoginForm: React.FC = () => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="email" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
           Email address
         </label>
         <div className="mt-1">
@@ -70,13 +69,12 @@ const LoginForm: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
-            className={isDarkMode ? 'bg-gray-800 border-gray-600' : ''}
           />
         </div>
       </div>
 
       <div>
-        <label htmlFor="password" className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
           Password
         </label>
         <div className="mt-1 relative">
@@ -89,11 +87,11 @@ const LoginForm: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"
-            className={`pr-10 ${isDarkMode ? 'bg-gray-800 border-gray-600' : ''}`}
+            className="pr-10"
           />
           <button
             type="button"
-            className={`absolute inset-y-0 right-0 pr-3 flex items-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
@@ -113,13 +111,13 @@ const LoginForm: React.FC = () => {
             type="checkbox"
             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
           />
-          <label htmlFor="remember-me" className={`ml-2 block text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
             Remember me
           </label>
         </div>
 
         <div className="text-sm">
-          <a href="#" className={`font-medium ${isDarkMode ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'}`}>
+          <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
             Forgot your password?
           </a>
         </div>
@@ -129,7 +127,7 @@ const LoginForm: React.FC = () => {
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
+          className="w-full bg-[#3C1042]"
         >
           {isLoading ? (
             <>

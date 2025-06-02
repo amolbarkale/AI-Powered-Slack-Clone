@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import { WorkspaceProvider } from "./contexts/WorkspaceContext";
 import { ChannelProvider } from "./contexts/ChannelContext";
+import { ChatProvider } from "./contexts/ChatContext";
 
 const queryClient = new QueryClient();
 
@@ -16,17 +17,19 @@ const App = () => (
     <AuthProvider>
       <WorkspaceProvider>
         <ChannelProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
+          <ChatProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </ChatProvider>
         </ChannelProvider>
       </WorkspaceProvider>
     </AuthProvider>

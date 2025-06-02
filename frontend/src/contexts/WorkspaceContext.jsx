@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { supabase } from '../lib/supabase';
+import { getWorkspaces, createWorkspace as apiCreateWorkspace } from '../lib/api';
 
 const WorkspaceContext = createContext();
 
@@ -19,15 +19,6 @@ export const WorkspaceProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // For demo purposes, let's create a mock workspace
-  const mockWorkspace = {
-    id: 'workspace-1',
-    name: 'Demo Workspace',
-    slug: 'demo',
-    created_at: new Date().toISOString(),
-    owner_id: user?.id || 'demo-user',
-  };
-
   useEffect(() => {
     if (user) {
       const fetchWorkspaces = async () => {
@@ -35,22 +26,15 @@ export const WorkspaceProvider = ({ children }) => {
           setLoading(true);
           setError(null);
           
-          // In a real app, fetch from Supabase
-          // const { data, error } = await supabase
-          //   .from('workspaces')
-          //   .select('*')
-          //   .or(`owner_id.eq.${user.id},members.cs.{${user.id}}`);
+          const { data, error: apiError } = await getWorkspaces();
           
-          // if (error) throw error;
+          if (apiError) throw apiError;
           
-          // For demo purposes, use mock data
-          const mockData = [mockWorkspace];
-          
-          setWorkspaces(mockData);
+          setWorkspaces(data);
           
           // Set current workspace if not already set
-          if (mockData.length > 0 && !currentWorkspace) {
-            setCurrentWorkspace(mockData[0]);
+          if (data.length > 0 && !currentWorkspace) {
+            setCurrentWorkspace(data[0]);
           }
         } catch (err) {
           console.error('Error fetching workspaces:', err);
@@ -64,30 +48,17 @@ export const WorkspaceProvider = ({ children }) => {
     }
   }, [user, currentWorkspace]);
 
-  const createWorkspace = async (name) => {
+  const createWorkspace = async (name, description = '') => {
     try {
       setError(null);
       
-      // In a real app, insert to Supabase
-      // const { data, error } = await supabase
-      //   .from('workspaces')
-      //   .insert([{ name, owner_id: user.id, slug: name.toLowerCase().replace(/\s+/g, '-') }])
-      //   .select()
-      //   .single();
+      const { data, error: apiError } = await apiCreateWorkspace(name, description);
       
-      // if (error) throw error;
+      if (apiError) throw apiError;
       
-      // For demo purposes, create mock data
-      const newWorkspace = {
-        id: `workspace-${workspaces.length + 1}`,
-        name,
-        slug: name.toLowerCase().replace(/\s+/g, '-'),
-        created_at: new Date().toISOString(),
-        owner_id: user?.id || 'demo-user',
-      };
-      
-      setWorkspaces([...workspaces, newWorkspace]);
-      return { data: newWorkspace, error: null };
+      setWorkspaces([...workspaces, data]);
+      setCurrentWorkspace(data);
+      return { data, error: null };
     } catch (err) {
       console.error('Error creating workspace:', err);
       setError(err.message);
