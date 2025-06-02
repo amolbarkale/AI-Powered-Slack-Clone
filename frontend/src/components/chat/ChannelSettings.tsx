@@ -18,7 +18,7 @@ const ChannelSettings: React.FC<ChannelSettingsProps> = ({ isOpen, onClose }) =>
   const [description, setDescription] = useState('');
   const [topic, setTopic] = useState('');
 
-  const channel = channels.find(c => c.id === activeChannel);
+  const channel = channels?.find(c => c.id === activeChannel);
   
   React.useEffect(() => {
     if (channel) {

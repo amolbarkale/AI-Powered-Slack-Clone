@@ -13,7 +13,7 @@ const MemberManagement: React.FC<MemberManagementProps> = ({ channelId }) => {
   const [showAddMember, setShowAddMember] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const channel = channels.find(c => c.id === channelId);
+  const channel = channels?.find(c => c.id === channelId);
   const members = getChannelMembers(channelId);
 
   // Mock available users to add (in real app, this would come from workspace members)

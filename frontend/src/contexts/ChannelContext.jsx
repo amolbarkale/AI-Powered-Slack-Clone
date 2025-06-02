@@ -147,7 +147,7 @@ export const ChannelProvider = ({ children }) => {
   };
 
   const switchChannel = async (channelId) => {
-    const channel = channels.find(c => c.id === channelId);
+    const channel = channels?.find(c => c.id === channelId);
     if (channel) {
       setCurrentChannel(channel);
       
