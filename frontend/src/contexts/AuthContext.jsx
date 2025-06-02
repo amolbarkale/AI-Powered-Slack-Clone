@@ -1,71 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import supabase from '../lib/supabaseClient';
-import { getCurrentUser } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
-const AuthContext = createContext(null);
-
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    // Check for existing session on load
-    const checkUser = async () => {
-      try {
-        setLoading(true);
-        
-        // Get session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          const { data, error } = await getCurrentUser();
-          if (error) {
-            setError(error.message);
-            setUser(null);
-          } else {
-            setUser(data.user);
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Auth error:', error);
-        setError(error.message);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkUser();
-
-    // Set up auth listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          const { data } = await getCurrentUser();
-          setUser(data.user);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      }
-    );
-
-    // Clean up subscription
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
-      }
-    };
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, loading, error }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -73,4 +9,77 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check active sessions and sets the user
+    const getSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error('Error getting session:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // For demo purposes, let's bypass authentication
+  const bypassAuth = true;
+  
+  // Expose the authentication context
+  const value = {
+    user: bypassAuth ? { id: 'demo-user', email: 'demo@example.com' } : user,
+    loading: bypassAuth ? false : loading,
+    signIn: async (email, password) => {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+    signUp: async (email, password) => {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+        return { data, error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
+    signOut: async () => {
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        return { error: null };
+      } catch (error) {
+        return { error };
+      }
+    },
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }; 
