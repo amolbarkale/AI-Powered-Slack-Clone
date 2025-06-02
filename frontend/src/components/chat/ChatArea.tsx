@@ -9,7 +9,7 @@ const ChatArea: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const messages = getChannelMessages(activeChannel);
-  const activeChannelData = channels.find(c => c.id === activeChannel);
+  const activeChannelData = channels?.find(c => c.id === activeChannel);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

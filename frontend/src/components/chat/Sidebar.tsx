@@ -14,8 +14,8 @@ const Sidebar: React.FC = () => {
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   const [channelMenuOpen, setChannelMenuOpen] = useState<string | null>(null);
   
-  const publicChannels = channels.filter(c => c.type === 'public' || c.type === 'private');
-  const directMessages = channels.filter(c => c.type === 'dm' || c.type === 'group_dm');
+  const publicChannels = channels?.filter(c => c.type === 'public' || c.type === 'private');
+  const directMessages = channels?.filter(c => c.type === 'dm' || c.type === 'group_dm');
 
   const handleChannelRightClick = (e: React.MouseEvent, channelId: string) => {
     e.preventDefault();
@@ -66,7 +66,7 @@ const Sidebar: React.FC = () => {
             
             {showChannels && (
               <div className="space-y-1">
-                {publicChannels.map((channel) => (
+                {publicChannels?.map((channel) => (
                   <div key={channel.id} className="relative">
                     <button
                       onClick={() => setActiveChannel(channel.id)}
@@ -132,7 +132,7 @@ const Sidebar: React.FC = () => {
             
             {showDMs && (
               <div className="space-y-1">
-                {directMessages.map((dm) => (
+                {directMessages?.map((dm) => (
                   <button
                     key={dm.id}
                     onClick={() => setActiveChannel(dm.id)}

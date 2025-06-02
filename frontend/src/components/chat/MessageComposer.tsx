@@ -24,7 +24,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   const [mentionQuery, setMentionQuery] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const activeChannelData = channels.find(c => c.id === activeChannel);
+  const activeChannelData = channels?.find(c => c.id === activeChannel);
   const actualPlaceholder = placeholder === "Message #general" 
     ? `Message ${activeChannelData?.type === 'public' || activeChannelData?.type === 'private' ? '#' : '@'}${activeChannelData?.name}` 
     : placeholder;

@@ -5,8 +5,9 @@ import { supabase } from './supabase';
  */
 
 export async function signUp(email, password, userData = {}) {
-  console.log('email, password, userData:', email, password, userData)
   try {
+    console.log('Signing up with:', { email, password, userData });
+    
     // 1. Sign up the user with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -14,15 +15,17 @@ export async function signUp(email, password, userData = {}) {
       options: {
         data: {
           full_name: userData.fullName || email.split('@')[0],
-          avatar_url: userData.avatarUrl || null,
-          bio: userData.bio || null,
-          phone: userData.phone || null
+          avatar_url: userData.avatarUrl || null
         }
       }
     });
 
+    console.log('Auth response:', { authData, authError });
+    
     if (authError) throw authError;
-
+    
+    // Return success immediately - the database trigger will handle creating the user record
+    // We won't try to update additional fields yet as it might fail due to timing issues
     return { data: authData, error: null };
   } catch (error) {
     console.error('Error signing up:', error);
@@ -59,27 +62,141 @@ export async function signOut() {
 
 export async function getCurrentUser() {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    console.log('Getting current user...');
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (error) throw error;
+    if (authError) {
+      console.error('Auth error in getCurrentUser:', authError);
+      return { data: { user: null }, error: authError };
+    }
     
     if (user) {
-      // Get additional user data from the users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', user.id)
-        .single();
-      
-      if (userError) throw userError;
-      
-      return { data: { user: { ...user, ...userData } }, error: null };
+      console.log('Auth user found:', user.id);
+      try {
+        // Get additional user data from the users table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', user.id)
+          .single();
+        
+        // If user record exists, return it
+        if (!userError && userData) {
+          console.log('User record found in database');
+          return { data: { user: { ...user, ...userData } }, error: null };
+        }
+        
+        // If user record doesn't exist but we have an auth user, create it
+        console.log('User record not found, attempting to create manually...');
+        
+        try {
+          // Try to use the RPC function if it exists
+          const { data: newUserId, error: rpcError } = await supabase.rpc(
+            'create_user_manually',
+            { 
+              auth_user_id: user.id,
+              user_email: user.email,
+              user_name: user.user_metadata?.full_name || null
+            }
+          );
+          
+          if (!rpcError && newUserId) {
+            console.log('User created via RPC function:', newUserId);
+            
+            // Get the newly created user
+            const { data: newUser, error: fetchError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', newUserId)
+              .single();
+              
+            if (!fetchError && newUser) {
+              return { data: { user: { ...user, ...newUser } }, error: null };
+            }
+          } else {
+            console.error('RPC error:', rpcError);
+            
+            // Fallback to direct creation
+            return await createUserManually(user);
+          }
+        } catch (rpcError) {
+          console.error('Error calling RPC function:', rpcError);
+          
+          // Fallback to direct creation
+          return await createUserManually(user);
+        }
+        
+        // If we get here, return just the auth user
+        console.log('Returning just auth user as fallback');
+        return { data: { user }, error: null };
+      } catch (userDataError) {
+        console.error('Error fetching user data:', userDataError);
+        return { data: { user }, error: null };
+      }
     }
     
     return { data: { user: null }, error: null };
   } catch (error) {
     console.error('Error getting current user:', error);
     return { data: { user: null }, error };
+  }
+}
+
+// Helper function to manually create a user record
+async function createUserManually(authUser) {
+  console.log('Creating user manually via direct DB operations');
+  
+  try {
+    // 1. Create workspace
+    const { data: workspace, error: wsError } = await supabase
+      .from('workspaces')
+      .insert([{ name: 'Default Workspace' }])
+      .select()
+      .single();
+      
+    if (wsError) {
+      console.error('Error creating workspace:', wsError);
+      return { data: { user: authUser }, error: null };
+    }
+    
+    // 2. Create user
+    const { data: newUser, error: userError } = await supabase
+      .from('users')
+      .insert([{
+        auth_id: authUser.id,
+        full_name: authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+        email: authUser.email,
+        workspace_id: workspace.id
+      }])
+      .select()
+      .single();
+      
+    if (userError) {
+      console.error('Error creating user:', userError);
+      return { data: { user: authUser }, error: null };
+    }
+    
+    // 3. Update workspace
+    await supabase
+      .from('workspaces')
+      .update({ created_by: newUser.id })
+      .eq('id', workspace.id);
+      
+    // 4. Create channel
+    await supabase
+      .from('channels')
+      .insert([{
+        workspace_id: workspace.id,
+        name: 'general',
+        description: 'General discussion',
+        created_by: newUser.id
+      }]);
+      
+    console.log('User created manually successfully');
+    return { data: { user: { ...authUser, ...newUser } }, error: null };
+  } catch (error) {
+    console.error('Error in manual user creation:', error);
+    return { data: { user: authUser }, error: null };
   }
 }
 

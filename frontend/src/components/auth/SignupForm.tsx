@@ -70,34 +70,34 @@ const SignupForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await signUp(
-        formData.email, 
+      console.log('Starting signup process...');
+      
+      // Simple signup with our new function
+      const result = await signUp(
+        formData.email,
         formData.password,
-        { 
-          fullName: formData.name,
-          avatarUrl: avatar || undefined,
-          bio: formData.bio,
-          phone: formData.phone
-        }
+        { fullName: formData.name }
       );
       
-      if (!error) {
+      console.log('Signup result:', result);
+      
+      if (result.success) {
         toast({
           title: 'Account created!',
-          description: 'Welcome to the team! You can now start collaborating.',
+          description: 'Please check your email to confirm your account.',
         });
       } else {
         toast({
           title: 'Sign up failed',
-          description: error.message || 'Failed to create account. Please try again.',
+          description: result.error || 'Failed to create account. Please try again.',
           variant: 'destructive'
         });
       }
-    } catch (error) {
-      console.log('error:', error)
+    } catch (error: any) {
+      console.error('Error during signup:', error);
       toast({
         title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        description: error?.message || 'Something went wrong. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -230,7 +230,7 @@ const SignupForm: React.FC = () => {
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
+          className="w-full bg-[#3C1042]"
         >
           {isLoading ? (
             <>

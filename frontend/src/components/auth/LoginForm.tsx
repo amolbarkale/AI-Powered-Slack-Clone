@@ -28,9 +28,10 @@ const LoginForm: React.FC = () => {
     setIsLoading(true);
     
     try {
-      const { data, error } = await signIn(email, password);
+      console.log('Attempting to sign in...');
+      const result = await signIn(email, password);
       
-      if (!error) {
+      if (result.success) {
         toast({
           title: 'Welcome back!',
           description: 'You have successfully signed in.',
@@ -38,14 +39,15 @@ const LoginForm: React.FC = () => {
       } else {
         toast({
           title: 'Sign in failed',
-          description: error.message || 'Invalid email or password. Please try again.',
+          description: result.error || 'Invalid email or password. Please try again.',
           variant: 'destructive'
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error during sign in:', error);
       toast({
         title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        description: error?.message || 'Something went wrong. Please try again.',
         variant: 'destructive'
       });
     } finally {
@@ -104,7 +106,7 @@ const LoginForm: React.FC = () => {
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center">
+        {/* <div className="flex items-center">
           <input
             id="remember-me"
             name="remember-me"
@@ -114,13 +116,13 @@ const LoginForm: React.FC = () => {
           <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
             Remember me
           </label>
-        </div>
+        </div> */}
 
-        <div className="text-sm">
+        {/* <div className="text-sm">
           <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
             Forgot your password?
           </a>
-        </div>
+        </div> */}
       </div>
 
       <div>

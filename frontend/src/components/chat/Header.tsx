@@ -10,7 +10,7 @@ const Header: React.FC = () => {
   const [showOrgBrain, setShowOrgBrain] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   
-  const activeChannelData = channels.find(c => c.id === activeChannel);
+  const activeChannelData = channels?.find(c => c.id === activeChannel);
   const channelMembers = getChannelMembers(activeChannel);
 
   return (
