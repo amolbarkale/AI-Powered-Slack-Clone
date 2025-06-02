@@ -30,7 +30,7 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
-      <div className="w-64 bg-gray-800 dark:bg-gray-900 text-white flex flex-col">
+      <div className="w-64 bg-[#3C1042] text-white flex flex-col">
         {/* Workspace Header */}
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center justify-between">

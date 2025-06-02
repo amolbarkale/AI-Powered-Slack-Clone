@@ -9,7 +9,8 @@ import {
   editMessage as apiEditMessage,
   deleteMessage as apiDeleteMessage,
   subscribeToMessages,
-  subscribeToThreadMessages
+  subscribeToThreadMessages,
+  getChannelMembers as apiGetChannelMembers
 } from '../lib/api';
 
 // Type definitions for documentation purposes
@@ -57,6 +58,32 @@ export const ChatProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [fileUploading, setFileUploading] = useState(false);
+
+  // Helper function to get messages for a specific channel
+  const getChannelMessages = (channelId) => {
+    if (!channelId) return [];
+    return messages;
+  };
+
+  // Helper function to get thread messages
+  const getThreadMessages = (threadId) => {
+    if (!threadId) return [];
+    return threadMessages;
+  };
+
+  // Helper function to get channel members
+  const getChannelMembers = async (channelId) => {
+    if (!channelId) return [];
+    
+    try {
+      const { data, error } = await apiGetChannelMembers(channelId);
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Error getting channel members:', err);
+      return [];
+    }
+  };
 
   // Fetch messages when channel changes
   useEffect(() => {
@@ -302,7 +329,10 @@ export const ChatProvider = ({ children }) => {
         deleteMessage,
         openThread,
         closeThread,
-        handleFileUpload
+        handleFileUpload,
+        getChannelMessages,
+        getThreadMessages,
+        getChannelMembers
       }}
     >
       {children}

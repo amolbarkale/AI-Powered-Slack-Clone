@@ -317,14 +317,28 @@ export async function simpleSignIn(email, password) {
 // Get current user
 export async function simpleGetCurrentUser() {
   try {
-    // 1. Get session
-    const { data: { user }, error } = await supabase.auth.getUser();
+    // 1. First check if we have a valid session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (error || !user) {
+    if (sessionError) {
+      console.error('Session error:', sessionError);
       return { user: null };
     }
     
-    // 2. Get user data with fast timeout
+    if (!session) {
+      console.log('No active session found');
+      return { user: null };
+    }
+    
+    // 2. Get user from session
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error || !user) {
+      console.error('Error getting user from session:', error);
+      return { user: null };
+    }
+    
+    // 3. Get user data with fast timeout
     let userData = null;
     
     try {
@@ -387,7 +401,7 @@ export async function simpleGetCurrentUser() {
       console.error('Error fetching user data:', err);
     }
     
-    // 3. If we still don't have user data, return just the auth user with temporary ID
+    // 4. If we still don't have user data, return just the auth user with temporary ID
     if (!userData) {
       console.warn('Could not get or create user record, using auth user data');
       userData = {

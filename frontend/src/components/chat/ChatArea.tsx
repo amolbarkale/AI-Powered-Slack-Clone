@@ -1,15 +1,15 @@
-
 import React, { useRef, useEffect } from 'react';
 import { useChat } from '../../contexts/ChatContext';
+import { useChannel } from '../../contexts/ChannelContext';
 import MessageBubble from './MessageBubble';
 import MessageComposer from './MessageComposer';
 
 const ChatArea: React.FC = () => {
-  const { getChannelMessages, activeChannel, channels } = useChat();
+  const { messages } = useChat();
+  const { currentChannel, channels } = useChannel();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const messages = getChannelMessages(activeChannel);
-  const activeChannelData = channels?.find(c => c.id === activeChannel);
+  const activeChannelData = channels?.find(c => c.id === currentChannel?.id);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

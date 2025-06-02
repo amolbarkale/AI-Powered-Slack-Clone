@@ -1,17 +1,31 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Settings, Hash, Brain, Users, Info } from 'lucide-react';
 import { useChat } from '../../contexts/ChatContext';
+import { useChannel } from '../../contexts/ChannelContext';
 import { Button } from '../ui/button';
 import ChannelSettings from './ChannelSettings';
 
 const Header: React.FC = () => {
-  const { searchQuery, setSearchQuery, activeChannel, channels, getChannelMembers } = useChat();
+  const { getChannelMembers } = useChat();
+  const { currentChannel, channels } = useChannel();
   const [showOrgBrain, setShowOrgBrain] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [channelMembers, setChannelMembers] = useState([]);
   
-  const activeChannelData = channels?.find(c => c.id === activeChannel);
-  const channelMembers = getChannelMembers(activeChannel);
+  const activeChannelData = channels?.find(c => c.id === currentChannel?.id);
+
+  // Fetch channel members when channel changes
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (currentChannel?.id) {
+        const members = await getChannelMembers(currentChannel.id);
+        setChannelMembers(members);
+      }
+    };
+    
+    fetchMembers();
+  }, [currentChannel?.id, getChannelMembers]);
 
   return (
     <>

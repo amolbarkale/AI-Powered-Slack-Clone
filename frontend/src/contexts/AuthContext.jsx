@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   simpleSignIn, 
   simpleSignUp, 
@@ -6,6 +6,7 @@ import {
   simpleGetCurrentUser 
 } from '../lib/simple-auth';
 import { supabase } from '../lib/supabase';
+import { sessionPersistence } from '../lib/sessionPersistence';
 
 const AuthContext = createContext();
 
@@ -21,6 +22,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const sessionCheckInterval = useRef(null);
+  const lastActivity = useRef(Date.now());
 
   // Function to fetch and set current user with timeout
   const fetchAndSetUser = async () => {
@@ -47,14 +50,144 @@ export const AuthProvider = ({ children }) => {
       console.error('Error fetching user:', error);
       setUser(null);
     } finally {
-      console.log('Setting loading to false');
       setLoading(false);
     }
   };
 
+  // Setup session persistence callbacks
   useEffect(() => {
-    console.log('AuthProvider initialized');
+    // Handle session lost
+    sessionPersistence.onSessionLost(() => {
+      console.log('Session lost detected by persistence service');
+      setUser(null);
+      setAuthError('Session expired. Please sign in again.');
+    });
+
+    // Handle session recovered
+    sessionPersistence.onSessionRecovered(() => {
+      console.log('Session recovered by persistence service');
+      fetchAndSetUser();
+    });
+  }, []);
+
+  // Aggressive session monitoring
+  const startSessionMonitoring = () => {
+    if (sessionCheckInterval.current) {
+      clearInterval(sessionCheckInterval.current);
+    }
+
+    sessionCheckInterval.current = setInterval(async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error || !session) {
+          console.warn('Session lost during monitoring, attempting to maintain user state');
+          // Don't immediately sign out, try to refresh first
+          const { error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            console.error('Failed to refresh session:', refreshError);
+            setUser(null);
+          } else {
+            console.log('Session refreshed successfully');
+          }
+        } else {
+          // Session is valid, update last activity
+          lastActivity.current = Date.now();
+        }
+      } catch (error) {
+        console.error('Error during session monitoring:', error);
+      }
+    }, 30000); // Check every 30 seconds
+  };
+
+  // Stop session monitoring
+  const stopSessionMonitoring = () => {
+    if (sessionCheckInterval.current) {
+      clearInterval(sessionCheckInterval.current);
+      sessionCheckInterval.current = null;
+    }
+  };
+
+  // Handle page visibility changes to maintain session
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && user) {
+        console.log('Page became visible, checking session...');
+        lastActivity.current = Date.now();
+        
+        try {
+          // First try to get the current session
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error || !session) {
+            console.log('No session found on visibility change, attempting refresh...');
+            
+            // Try to refresh the session
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError || !refreshData.session) {
+              console.log('Session refresh failed, user will be signed out');
+              setUser(null);
+            } else {
+              console.log('Session refreshed successfully on visibility change');
+              // Optionally re-fetch user data
+              await fetchAndSetUser();
+            }
+          } else {
+            console.log('Session valid after page visibility change');
+          }
+        } catch (error) {
+          console.error('Error checking session on visibility change:', error);
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      if (user) {
+        lastActivity.current = Date.now();
+        handleVisibilityChange();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      // Save current session state before page unload
+      if (user) {
+        localStorage.setItem('slack_user_state', JSON.stringify({
+          timestamp: Date.now(),
+          userId: user.id,
+          email: user.email
+        }));
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('beforeunload', handleBeforeUnload);
     
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user]);
+
+  useEffect(() => {    
+    // Check for saved user state on app start
+    const savedUserState = localStorage.getItem('slack_user_state');
+    if (savedUserState) {
+      try {
+        const { timestamp } = JSON.parse(savedUserState);
+        // If saved state is less than 1 hour old, try to restore session
+        if (Date.now() - timestamp < 3600000) {
+          console.log('Found recent user state, attempting to restore session...');
+        }
+      } catch (error) {
+        console.error('Error parsing saved user state:', error);
+        localStorage.removeItem('slack_user_state');
+      }
+    }
+
     // Check active sessions and sets the user
     fetchAndSetUser();
 
@@ -62,11 +195,31 @@ export const AuthProvider = ({ children }) => {
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session ? 'session exists' : 'no session');
       
-      if (session) {
+      if (event === 'SIGNED_IN' && session) {
         await fetchAndSetUser();
-      } else {
+        startSessionMonitoring();
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setLoading(false);
+        stopSessionMonitoring();
+        localStorage.removeItem('slack_user_state');
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        console.log('Token refreshed, updating user data');
+        await fetchAndSetUser();
+      } else if (!session && user) {
+        // Session lost but we still have a user - this might be the issue
+        console.warn('Session lost but user still exists, attempting recovery...');
+        
+        // Try one more time to get the session
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          if (!retrySession) {
+            console.log('Session definitely lost, signing out user');
+            setUser(null);
+            setLoading(false);
+            stopSessionMonitoring();
+          }
+        }, 1000);
       }
     });
 
@@ -81,8 +234,22 @@ export const AuthProvider = ({ children }) => {
     return () => {
       authListener.subscription.unsubscribe();
       clearTimeout(timeoutId);
+      stopSessionMonitoring();
     };
   }, []);
+
+  // Start monitoring when user is set
+  useEffect(() => {
+    if (user) {
+      startSessionMonitoring();
+    } else {
+      stopSessionMonitoring();
+    }
+
+    return () => {
+      stopSessionMonitoring();
+    };
+  }, [user]);
   
   // Expose the authentication context
   const value = {
@@ -114,6 +281,7 @@ export const AuthProvider = ({ children }) => {
         if (result.success) {
           console.log('Sign in successful, setting user');
           setUser(result.user);
+          lastActivity.current = Date.now();
           return { success: true };
         } else {
           console.error('Sign in failed:', result.error);
@@ -169,6 +337,8 @@ export const AuthProvider = ({ children }) => {
         
         const result = await simpleSignOut();
         setUser(null);
+        stopSessionMonitoring();
+        localStorage.removeItem('slack_user_state');
         
         return result;
       } catch (error) {

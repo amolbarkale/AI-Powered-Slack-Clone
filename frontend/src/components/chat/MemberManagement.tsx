@@ -1,20 +1,45 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, UserMinus, Crown, Shield, User } from 'lucide-react';
 import { useChat } from '../../contexts/ChatContext';
+import { useChannel } from '../../contexts/ChannelContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
+
+interface Member {
+  id: string;
+  name?: string;
+  full_name?: string;
+  email?: string;
+  avatar?: string;
+  avatar_url?: string;
+  role?: string;
+}
 
 interface MemberManagementProps {
   channelId: string;
 }
 
 const MemberManagement: React.FC<MemberManagementProps> = ({ channelId }) => {
-  const { channels, getChannelMembers, currentUser } = useChat();
+  const { getChannelMembers } = useChat();
+  const { channels } = useChannel();
+  const { user: currentUser } = useAuth();
   const [showAddMember, setShowAddMember] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [members, setMembers] = useState<Member[]>([]);
 
   const channel = channels?.find(c => c.id === channelId);
-  const members = getChannelMembers(channelId);
+
+  // Fetch channel members when channelId changes
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (channelId) {
+        const channelMembers = await getChannelMembers(channelId);
+        setMembers(channelMembers);
+      }
+    };
+    
+    fetchMembers();
+  }, [channelId, getChannelMembers]);
 
   // Mock available users to add (in real app, this would come from workspace members)
   const availableUsers = [
@@ -144,16 +169,16 @@ const MemberManagement: React.FC<MemberManagementProps> = ({ channelId }) => {
           >
             <div className="flex items-center space-x-3">
               <img
-                src={member.avatar}
-                alt={member.name}
+                src={member.avatar || member.avatar_url || '/default-avatar.png'}
+                alt={member.name || member.full_name || 'User'}
                 className="w-10 h-10 rounded-full"
               />
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {member.name}
+                    {member.name || member.full_name || 'Unknown User'}
                   </span>
-                  {getRoleIcon(member.role)}
+                  {getRoleIcon(member.role || 'member')}
                   {member.id === currentUser?.id && (
                     <span className="text-xs text-gray-500 dark:text-gray-400">(You)</span>
                   )}
@@ -164,14 +189,14 @@ const MemberManagement: React.FC<MemberManagementProps> = ({ channelId }) => {
                   )}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  {member.email}
+                  {member.email || 'No email'}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
               <div className="text-sm text-gray-500 dark:text-gray-400 capitalize">
-                {member.role}
+                {member.role || 'member'}
               </div>
               {member.id !== currentUser?.id && (
                 <Button

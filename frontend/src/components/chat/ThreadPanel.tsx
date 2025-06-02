@@ -1,34 +1,51 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { X, FileText, Users, Pin } from 'lucide-react';
 import { useChat } from '../../contexts/ChatContext';
+import { useChannel } from '../../contexts/ChannelContext';
 import { Button } from '../ui/button';
 import MessageBubble from './MessageBubble';
 import MessageComposer from './MessageComposer';
 
+interface Member {
+  id: string;
+  name?: string;
+  full_name?: string;
+  email?: string;
+}
+
 const ThreadPanel: React.FC = () => {
   const { 
-    activeThread, 
-    setActiveThread, 
-    toggleThreadPanel, 
-    getThreadMessages, 
-    isThreadPanelOpen,
+    currentThread, 
+    closeThread, 
+    isThreadOpen,
     getChannelMembers,
-    activeChannel
+    threadMessages
   } = useChat();
+  const { currentChannel } = useChannel();
   const [showNotesGenerator, setShowNotesGenerator] = useState(false);
+  const [channelMembers, setChannelMembers] = useState<Member[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const threadMessages = getThreadMessages(activeThread || '');
   const parentMessage = threadMessages[0];
   const replies = threadMessages.slice(1);
-  const channelMembers = getChannelMembers(activeChannel);
+
+  // Fetch channel members when channel changes
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (currentChannel?.id) {
+        const members = await getChannelMembers(currentChannel.id);
+        setChannelMembers(members);
+      }
+    };
+    
+    fetchMembers();
+  }, [currentChannel?.id, getChannelMembers]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [threadMessages]);
 
-  if (!isThreadPanelOpen || !activeThread) return null;
+  if (!isThreadOpen || !currentThread) return null;
 
   return (
     <div className="w-80 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 flex flex-col">
@@ -52,8 +69,7 @@ const ThreadPanel: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => {
-                setActiveThread(null);
-                toggleThreadPanel(false);
+                closeThread();
               }}
               className="h-8 w-8 p-0"
             >
@@ -117,7 +133,7 @@ const ThreadPanel: React.FC = () => {
 
       {/* Thread Message Composer */}
       <MessageComposer 
-        threadId={activeThread}
+        threadId={currentThread?.id}
         placeholder="Reply to thread..."
       />
 
@@ -149,7 +165,7 @@ const ThreadPanel: React.FC = () => {
                 </ul>
                 
                 <div className="font-medium mt-2">👥 Participants:</div>
-                <p>{channelMembers.slice(0, 3).map(m => m.name).join(', ')}</p>
+                <p>{channelMembers.slice(0, 3).map(m => m.name || m.full_name || 'Unknown').join(', ')}</p>
               </div>
             </div>
             
