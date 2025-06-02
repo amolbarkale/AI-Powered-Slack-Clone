@@ -49,7 +49,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce',
     storage: customStorage,
     storageKey: 'supabase.auth.token',
-    debug: true // Enable debug mode to see what's happening
   },
   realtime: {
     timeout: 60000,
